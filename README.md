@@ -7,7 +7,9 @@ This project draws on spatial mapping and prediction tools commonly used in ecol
 
 ###Cultural ES data
 Information on the 'occurrence' of cultural ecosystem services is drawn from data collected from ~1000 participants across Norway, and consists of a range of ecosystem values & places, and preference for different management/development options.  
+
 More information on the dataset can be found here:
+
     *Brown G, Helene Hausner V, Lægreid E. 2015. Physical landscape associations with mapped ecosystem values with implications for spatial value transfer: An empirical study from Norway. Ecosystem Services 15:19–34.*
     *Brown G, Pullar D, Hausner VH. 2016. An empirical evaluation of spatial value transfer methods for identifying cultural ecosystem services. Ecological Indicators 69:1–11.*
 
