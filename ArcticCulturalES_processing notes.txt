@@ -1,0 +1,34 @@
+#Arctic Cultural ES
+#Data procesing notes
+
+##########PPGIS data
+originally this data is in WGS84 (Google Earth)
+loaded to arcgis, converted to 
+-> PPGIS_Markers_south.shp & PPGIS_Markers_north.shp
+projected to ETRS_1989_UTM_Zone_33N saved as 
+-> PPGIS_Markers_south_UTM33N.shp & PPGIS_Markers_north_UTM33N.shp
+
+#########Spatial data
+#templates & boundaries
+##merged Basemap500::n500_nationalborderseal & n500_nationalborderlandl then feature to polygon
+-> Norway_border.shp
+buffered to 10km
+-> Norway_border_10kmbuffer.shp
+
+Create Constant Raster with
+constant value: 0
+output data type: INTEGER
+output cell size: D:\Arctic Cultural ES\Spatial data\CORINE2006\Norway.tif
+output extent: same as Norway_border_10kmbuffer.shp
+environments::snap to CORINE2006\Norway.tif
+environments::mask Norway_border_10kmbuffer.shp
+->Norway_template_raster.tif
+
+#Clip CORRINE2006
+Spatial Analyst::Extract by Mask
+inputraster: D:\Arctic Cultural ES\Spatial data\CORINE2006\Norway.tif
+mask feature: Norway_template_raster.tif
+-> Corrine2006_norway.tif
+#set sea as NA
+reclassify Corrine2006_norway.tif value=44 -> NoData
+-> Corrine2006_norway_noSea.tif
