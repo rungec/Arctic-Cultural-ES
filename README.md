@@ -1,7 +1,7 @@
 # Arctic-Cultural-ES
-This project maps cultural ecosystem services in Norway, using data collected using PPGIS. 
-Project lead Vera Hausner Associate Professor, Department of Arctic and Marine Biology, The Arctic University of Tromso vera.hausner@uit.no
-Project associate Claire Runge Postdoctoral Research Scholar, National Centre for Ecological Analysis & Synthesis, University of California Santa Barbara runge@nceas.ucsb.edu
+This project maps cultural ecosystem services in Norway, using data collected using PPGIS.   
+Project lead Vera Hausner Associate Professor, Department of Arctic and Marine Biology, The Arctic University of Tromso vera.hausner@uit.no  
+Project associate Claire Runge Postdoctoral Research Scholar, National Centre for Ecological Analysis & Synthesis, University of California Santa Barbara runge@nceas.ucsb.edu  
 
 This project draws on spatial mapping and prediction tools commonly used in ecology to map and model the spatial distribution of cultural ecosystem services across Norway & the Arctic.
 
