@@ -13,8 +13,10 @@ library(dismo) #for maxent interface
 library(ENMtools) #for AICc
 library(raster)
 library(foreign) #read dbfs
+library(rgdal) #read shps
+library(rgeos) #for buffer
 
-wd <- "D:/Arctic Cultural ES/"
+wd <- "C:/Claire/Arctic_Cultural_ES/"
 setwd(wd)
 
 #load ces observations (PPGIS data)
@@ -22,7 +24,7 @@ markersN <- read.dbf(paste0(wd, "Cultural PPGIS Data/PPGIS_Markers_north_UTM33N.
 markersS <- read.dbf(paste0(wd, "Cultural PPGIS Data/PPGIS_Markers_south_UTM33N.dbf"))
 
 #load environmental data
-rastDir <- paste0(wd, "Spatial data/")
+
 varFolder <- c("CORINE2006", 
 
 # need
@@ -42,3 +44,24 @@ markersAll$region = rep(c("north", "south"), times=c(nrow(markersN), nrow(marker
 #table of how many points for each type of CES in each region
 counttable <- with(markersAll, table(category, region))
 write.csv(counttable, paste0(wd, "Cultural PPGIS Data/NumberofPointsbyCEScategory.csv"))
+
+############################
+#Processing shps to rasters
+rastDir <- paste0(wd, "Spatial data/")
+rastTemplate = raster(paste0(rastDir, "Processed/Templates and boundaries/Norway_template_raster.tif"))
+
+#Protected areas
+PAshp <- readOGR(paste0(rastDir, "Original/Norway protected areas"), "Protected area Norway Svalbard")
+PArast <- rasterize(PAshp, rastTemplate, field="IUCNCat", fun='min', background=0, filename=paste0(rastDir, "Processed/Protected_areas_norway.tif"), format = "GTiff", datatype="INT2S")
+PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0, rep(1, 7)), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_truefalse.tif"), format = "GTiff", datatype="INT2S")
+
+#Important ecological areas
+Ecolshp <- readOGR(paste0(rastDir, "Original/NATURBASE/Naturtyper"), "Naturtyper_flater")
+Ecolbuff <- gBuffer(Ecolshp, byid=TRUE, id=Ecolshp$FID, width=49) #because the polygons in this dataset are smaller than the raster I buffer them by 49m which is just smaller than half the raster resolution of 100m
+Ecolrast <- rasterize(Ecolbuff, rastTemplate, field="VERDIint", background=0, fun='max', filename=paste0(rastDir, "Processed/Ecological_areas_norway.tif"), format = "GTiff", datatype="INT2S")
+
+#State commons
+stateshp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
+statesub <- stateshp[stateshp@data$EKAT %in% c(2,3),]
+staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway.tif"), format = "GTiff", datatype="INT2S")
+
