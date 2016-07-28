@@ -62,3 +62,13 @@ Statskog eiendom/Statskog eiendom 2014 (use only categories EKAT=2 or 3)
 (in r ArcticCulturalES_createInputs.r)
 Converted to raster using Norway_template_raster as template. Value =2,3
 -> State_commons_norway.tif
+
+#Data that is already rasterized
+(in r ArcticCulturalES_createInputs.r)
+resampled to Norway_template_raster.
+
+-> distancetoTown="SSB/Tettsted2015/tet_dist2015"
+-> distancetoRiver="N50 Data/Rivers50/river_dist"
+-> distancetoCoast= "N250 Data/Coastline250/coastdistance"
+-> distancetoRoad="N250 Data/Roads250/roaddist"
+-> distancetoHouse="N250 Data/Buildings250/house_dist"
