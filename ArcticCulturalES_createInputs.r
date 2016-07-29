@@ -40,6 +40,10 @@ rasterOptions(maxmemory =1e+09)
 rasterOptions(chunksize=1e+08)
 
 ############################
+rastDir <- paste0(wd, "Spatial data/")
+rastTemplate = raster(paste0(rastDir, "Processed/Templates and boundaries/Norway_template_raster.tif"))
+
+############################
 #Process PPGIS data
 #load ces observations (PPGIS data)
 markersN <- read.dbf(paste0(wd, "Cultural PPGIS Data/PPGIS_Markers_north_UTM33N.dbf"))
@@ -56,9 +60,6 @@ write.csv(counttable, paste0(wd, "Cultural PPGIS Data/NumberofPointsbyCEScategor
 
 ############################
 #Processing shps to rasters
-rastDir <- paste0(wd, "Spatial data/")
-rastTemplate = raster(paste0(rastDir, "Processed/Templates and boundaries/Norway_template_raster.tif"))
-
 #Protected areas
 PAshp <- readOGR(paste0(rastDir, "Original/Norway protected areas"), "Protected area Norway Svalbard")
 PArast <- rasterize(PAshp, rastTemplate, field="IUCNCat", fun='min', background=0, filename=paste0(rastDir, "Processed/Protected_areas_norway.tif"), format = "GTiff", datatype="INT2S")
@@ -115,6 +116,12 @@ writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GT
 setwd(paste0(rastDir, "Processed/forMaxent/"))
 writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "ascii")
 
+###########################
+#make a mask raster from alpine climate regions to limit Maxent background to these regions
+alpineshp <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_alpine")
+alpinerast <- mask(rastTemplate, alpineshp)
+writeRaster(alpinerast, filename=paste0(rastDir, "Processed/Templates and boundaries/Norway_alpine.tif"), format = "GTiff", datatype="INT2S")
+writeRaster(alpinerast, filename=paste0(rastDir,"Processed/forMaxent/Norway_alpine.asc"), format = "ascii")
 		
 ###########################	
 #remove temp raster folder	
