@@ -121,8 +121,7 @@ NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 			return(currEval)
 		#save each model
 		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
-			}
-			)
+			})
 saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
 stopCluster(cl)
 
@@ -153,37 +152,105 @@ stopCluster(cl)
 #which.min(enmeval_results@results$AICc)
 #which.max(enmeval_results@results$Mean.AUC)
 
-			
-#Test how well the different datasets predict each otherchange
-ENMevaluate(occ, envStack[2:length(envStack@layers)], 
-			bg.coords=, 
-			occ.grp=, 
-			bg.grp=, 
-			RMvalue=seq(0.5, 4, 0.5), #use the values found above
-			fc=c("H"), 
-			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway.", "Protected_areas_norway.tif", "State_commons_norway"), 
-			n.bg=10000,
-			method='user',
-			overlap=TRUE,
-			bin.output=TRUE,
-			clamp=TRUE,
-			rasterPreds=TRUE, 
-			parallel=TRUE,
-			numCores=3)
+#test how well the datasets predict each other using the predictions in the eval files	Warren's D similarity statistic		
+NScompare <- lapply(1:length(cultESlist), function(x) {
+				currEvalN <- readRDS(paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
+				currEvalS <- readRDS(paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))	
+				bestN <- which.min(currEvalN@results$AICc) #pick model with lowest AICc
+				bestS <- which.min(currEvalS@results$AICc) #pick model with lowest AICc
+				NmodelRast <- currEvalN@predictions[[bestN]]
+				SmodelRast <- currEvalS@predictions[[bestS]]
+				return(nicheOverlap(NmodelRast, SmodelRast, mask=FALSE, stat='D'))
+			}
 
-#Base run of N model using all data
-Nmodel <- lapply(1:length(cultESlist), function(x) {
-			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),]
-			currOutPath <- paste0(outDir, "North model/Base run/", as.character(cultESlist[x]))
-			#run the model
-			currMod <- maxent(envStack, currOcc, nbg=10000, factors=c(""), path=currOutPath, args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'threads=3'), path=currOutPath)
-			#make predictive maps
-			currMap <- predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
-			writeRaster(currMap, filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff")
+########################
+#Base run of N model with response curves & jackknife
+# to do:
+# fill in regularisation parameters 'beta_hinge=4'
+
+#set up cluster
+cl <- makeCluster(ncore)
+clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+
+#run maxent model across all cultES
+Nmodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Base run/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), path=currOutPath, args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'beta_hinge=4'), path=currOutPath)
+			
+			#make predictive maps
+			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
+			raster::writeRaster(currMap, filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff")
+			
+			#save model
 			names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 			return(currMod)
-			})
+			)}
+stopCluster(cl)
+
+########################
+#Base run of S model with response curves & jackknife
+# to do:
+# fill in regularisation parameters 'beta_hinge=4'
+
+#set up cluster
+cl <- makeCluster(ncore)
+clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+
+#run maxent model for all cultES
+Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
+			
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base run/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), path=currOutPath, args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'beta_hinge=4'), path=currOutPath)
+			
+			#make predictive maps
+			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
+			raster::writeRaster(currMap, filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff")
+			
+			#save model
+			names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			)}
+			
+stopCluster(cl)
+
+
+
+
+######################
+#sensitivity to background - use randomseed=TRUE
+currArgs <- c('randomseed=TRUE', 'replicates=100', 'outputgrids=false') #check how long each run takes
+
+
+
+
+###LAMBDAS
+#helpful discussion on extracting lambdas
+# https://groups.google.com/forum/#!topic/maxent/iwd8kR_J0tk
+#only variables with value that is not zero in the second column were used in the model
+#first column: variable and feature type
+#second column: lambda value
+#third column: min value
+#fourth column: max value
+#
+  # # read lambdas file
+  # rf <- read.table(file.path(curpath, 'species.lambdas'), sep=',', fill=TRUE)
+  # # get variables used in model - no 0 in 2nd column)
+  # rf[!is.na(rf[3]) & rf[2] != 0,]
+
+
+
+
 
 
 
@@ -193,18 +260,13 @@ pmap <- predict(me, predictors, path="C:/Claire/Arctic_Cultural_ES/Maxent runs/t
 
 
 
-make.args(RMvalues = seq(0.5, 4, 0.5), fc = c("H"), labels = FALSE) #hinge only
-
-#Base run of S model using all data
-Smodel <- lapply(1:)
 
 #Check N model 10-fold cross validation, with response curves & jackknife 
 currArgs <- c('responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false')
 
 #S model Response curves & jackknife with k-fold cross validation
 
-#sensitivity to background - use randomseed=TRUE
-currArgs <- c('randomseed=TRUE', 'replicates=100', 'outputgrids=false') #check how long each run takes
+
 
 #compare N-S predictions
 #run through the different CultES 'species'
