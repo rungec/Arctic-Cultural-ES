@@ -15,6 +15,7 @@ library(ENMeval) #for AICc
 library(raster)
 library(foreign) #to read dbfs
 #library(rgdal) #to read shapefiles
+library(corrplot) #to plot correlation matrix
 
 wd <- "C:/Claire/Arctic_Cultural_ES/"
 setwd(wd)
@@ -39,7 +40,7 @@ rasterOptions(maxmemory =1e+09)
 rasterOptions(chunksize=1e+08)
 
 #number of core to use
-ncore=3
+ncore=12
 
 ###########################
 #PRELIMINARY PROCESSING
@@ -56,20 +57,33 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
-varnames <- c("Corrine2006_norway", "Corrine2006_norway_noSea","Distance_to_Coast_norway.tif", "Distance_to_House_norway", "Distance_to_River_norway.tif", "Distance_to_Road_norway", "Distance_to_Town_norway.tif", "Ecological_areas_norway.", "Protected_areas_norway.tif", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2006_norway", "Corrine2006_norway_noSea","Distance_to_Coast_norway", "Distance_to_House_norway", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
-
 
 #############################
 #check correlation of environmental variables
 cors <- layerStats(envStack, 'pearson', na.rm=TRUE)
+saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables.rds")) #readRDS to open
+#plot correlation matrix
+outPath <-  
+png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables.png"), width=620, height=480)
+corrplot(cors[[1]], method='number', type='lower')
+dev.off()
+
+#############################
+#remove unwanted variables
+envStack <- envStack[[c("Corrine2006_norway_noSea","Distance_to_Coast_norway",  "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway")]]
+
+#############################
+#set up background points
+alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
+bg <- randomPoint(alpineMask, n=10000)
 
 #############################
 #MAXENT RUNS
 #############################
 
-args <-  outputdirectory=, samplesfile)
 #maxent(envStack, occurencedata, nbg=number of background points, factors=names of layers considered as categorical, args=arguments passed to maxent, removeDuplicates=FALSE, path=place to store output files)
 
 #Conduct sensitivity analysis to evaluate optimal set of regularization multipliers and evaluate model fit #hinge only
@@ -77,27 +91,27 @@ args <-  outputdirectory=, samplesfile)
 
 NmodelEval <- lapply(1:length(cultESlist), function(x) {
 		currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		currEval <- ENMevaluate(occ=currOcc, env=envStack[[2:length(envStack@layers)]], 
+		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
 			fc=c("H", "L"), #hinge & linear
-			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway.", "Protected_areas_norway.tif", "State_commons_norway"), 
+			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
 			n.bg=10000,
 			method='randomkfold',
 			overlap=FALSE,
 			kfolds=10,
 			bin.output=TRUE,
-			clamp=TRUE,
 			rasterPreds=FALSE, 
 			parallel=FALSE)
 			return(currEval)
 			})
+saveRDS(NmodelEval, file=paste0(outDir, "/ENMevalofNmodel.rds"))
 
 SmodelEval <- lapply(1:length(cultESlist), function(x) {
 		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		currEval <- ENMevaluate(occ=currOcc, env=envStack[[2:length(envStack@layers)]], 
+		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
 			fc=c("H", "L"), #hinge & linear
-			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway.", "Protected_areas_norway.tif", "State_commons_norway"), 
+			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
 			n.bg=10000,
 			method='randomkfold',
 			overlap=FALSE,
@@ -108,6 +122,7 @@ SmodelEval <- lapply(1:length(cultESlist), function(x) {
 			parallel=FALSE)
 			return(currEval)
 			})
+saveRDS(SmodelEval, file=paste0(outDir, "/ENMevalofSmodel.rds"))
 			
 #Test how well the different datasets predict each otherchange
 ENMevaluate(occ, envStack[2:length(envStack@layers)], 
