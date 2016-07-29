@@ -139,8 +139,7 @@ SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 			bin.output=TRUE,
 			rasterPreds=TRUE, 
 			overlap=TRUE,
-			parallel=TRUE, 
-			numCores=ncore)
+			parallel=FALSE)
 			return(currEval)
 			}
 			saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
