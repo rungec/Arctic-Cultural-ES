@@ -14,8 +14,9 @@ library(dismo) #for maxent interface
 library(ENMeval) #for AICc
 library(raster)
 library(foreign) #to read dbfs
-#library(rgdal) #to read shapefiles
+library(rgdal) #to read shapefiles
 library(corrplot) #to plot correlation matrix
+library(parallel)
 
 #wd <- "C:/Claire/Arctic_Cultural_ES/"
 wd <- "/home/runge/Data/Arctic_Cultural_ES/"
@@ -41,13 +42,16 @@ rasterOptions(maxmemory =1e+09)
 rasterOptions(chunksize=1e+08)
 
 #number of core to use
-ncore=12
+ncore=8
+cl <- makeCluster(ncore)
 
 ###########################
 #PRELIMINARY PROCESSING
 #load ces observations (PPGIS data)
 markersN <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_north_UTM33N_alpine.csv"), header=TRUE)
 markersS <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_south_UTM33N_alpine.csv"), header=TRUE)
+markersNshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_north_UTM33N_alpine")
+markersSshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_south_UTM33N_alpine")
 
 #CES we are interested in
 cultESlist <- c("biological", "cabin", "cleanwater", "cultureident", "gathering", "hunt/fish", "income", "pasture", "recreation","scenic", "social", "specialplace", "spiritual", "therapuetic", "undisturbnature")
@@ -83,6 +87,16 @@ alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
 bg <- randomPoints(alpineMask, n=10000)
 write.csv(bg, paste0(outDir, "backgroundpoints.csv"), row.names=FALSE)
 
+#plot the background points
+bgshp <- SpatialPoints(bg, proj4string=crs(markersNshp))
+alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
+png(paste0(outDir, "Map_of_backgroundpoints.png"), width=480, height=620)
+	plot(alpineshp, border="grey70")
+	plot(markersSshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+	plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+	plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+dev.off()
+	
 #############################
 #MAXENT RUNS
 #############################
@@ -90,7 +104,7 @@ write.csv(bg, paste0(outDir, "backgroundpoints.csv"), row.names=FALSE)
 #occ=two column matrix or data.fram of lon and lat in that order
 
 #Sensitivity analysis of features & regularization of North dataset
-NmodelEval <- lapply(1:length(cultESlist), function(x) {
+NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 		currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
 		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
@@ -102,16 +116,18 @@ NmodelEval <- lapply(1:length(cultESlist), function(x) {
 			bin.output=TRUE,
 			rasterPreds=TRUE, 
 			overlap=TRUE,
-			parallel=TRUE, 
-			numCores=ncore)
+			parallel=FALSE)
 			return(currEval)
-			})
+			}
+			#save each model
+			saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
+			)
 saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
-
+stopCluster(cl)
 
 bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
 #Sensitivity analysis of features & regularization of South dataset
-SmodelEval <- lapply(1:length(cultESlist), function(x) {
+SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
 		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
@@ -126,12 +142,15 @@ SmodelEval <- lapply(1:length(cultESlist), function(x) {
 			parallel=TRUE, 
 			numCores=ncore)
 			return(currEval)
-			})
+			}
+			saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
+			)
 saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
+stopCluster(cl)
 
 
-
-
+#which.min(enmeval_results@results$AICc)
+#which.max(enmeval_results@results$Mean.AUC)
 
 			
 #Test how well the different datasets predict each otherchange
