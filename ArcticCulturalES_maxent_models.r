@@ -46,8 +46,8 @@ ncore=12
 ###########################
 #PRELIMINARY PROCESSING
 #load ces observations (PPGIS data)
-markersN <- read.csv(paste0(wd, "PPGIS Data/Processed/", "PPGIS_Markers_north_UTM33N_alpine.csv"), header=TRUE)
-markersS <- read.csv(paste0(wd, "PPGIS Data/Processed/", "PPGIS_Markers_south_UTM33N_alpine.csv"), header=TRUE)
+markersN <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_north_UTM33N_alpine.csv"), header=TRUE)
+markersS <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_south_UTM33N_alpine.csv"), header=TRUE)
 
 #CES we are interested in
 cultESlist <- c("biological", "cabin", "cleanwater", "cultureident", "gathering", "hunt/fish", "income", "pasture", "recreation","scenic", "social", "specialplace", "spiritual", "therapuetic", "undisturbnature")
@@ -58,9 +58,11 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
-varnames <- c("Corrine2006_norway", "Corrine2006_norway_noSea","Distance_to_Coast_norway", "Distance_to_House_norway", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2006_norway_noSea","Distance_to_Coast_norway",  "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+
 
 #############################
 #check correlation of environmental variables
@@ -74,13 +76,12 @@ dev.off()
 
 #############################
 #remove unwanted variables
-envStack <- envStack[[c("Corrine2006_norway_noSea","Distance_to_Coast_norway",  "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway")]]
-
+envStack <- envStack[[varnames]]
 #############################
 #set up background points
 alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
-bg <- randomPoint(alpineMask, n=10000)
-write.csv(paste0(outDir, "/backgroundpoints.csv"))
+bg <- randomPoints(alpineMask, n=10000)
+write.csv(bg, paste0(outDir, "backgroundpoints.csv"), row.names=FALSE)
 
 #############################
 #MAXENT RUNS
@@ -97,7 +98,6 @@ NmodelEval <- lapply(1:length(cultESlist), function(x) {
 			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
 			n.bg=10000,
 			method='randomkfold',
-			overlap=FALSE,
 			kfolds=10,
 			bin.output=TRUE,
 			rasterPreds=TRUE, 
@@ -106,8 +106,10 @@ NmodelEval <- lapply(1:length(cultESlist), function(x) {
 			numCores=ncore)
 			return(currEval)
 			})
-saveRDS(NmodelEval, file=paste0(outDir, "/ENMevalofNmodel.rds"))
+saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
 
+
+bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
 #Sensitivity analysis of features & regularization of South dataset
 SmodelEval <- lapply(1:length(cultESlist), function(x) {
 		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
@@ -117,7 +119,6 @@ SmodelEval <- lapply(1:length(cultESlist), function(x) {
 			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
 			n.bg=10000,
 			method='randomkfold',
-			overlap=FALSE,
 			kfolds=10,
 			bin.output=TRUE,
 			rasterPreds=TRUE, 
@@ -126,7 +127,7 @@ SmodelEval <- lapply(1:length(cultESlist), function(x) {
 			numCores=ncore)
 			return(currEval)
 			})
-saveRDS(SmodelEval, file=paste0(outDir, "/ENMevalofSmodel.rds"))
+saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
 
 
 
