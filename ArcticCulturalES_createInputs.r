@@ -15,6 +15,7 @@ library(raster)
 library(foreign) #read dbfs
 library(rgdal) #read shps
 library(rgeos) #for buffer
+library(dplyr) #for %>%
 
 wd <- "C:/Claire/Arctic_Cultural_ES/"
 setwd(wd)
@@ -84,17 +85,36 @@ Distance_to_Road=raster(paste0(rastDir, "Original/N250 Data/Roads250/roaddist"))
 Distance_to_House=raster(paste0(rastDir, "Original/N250 Data/Buildings250/house_dist"))
 )
 
+#resample to match resultion and extent, and extend as these rasters are smaller than the template raster
 a <- lapply(1:length(rastList), function(x) {
-		newRast <- resample(rastList[[x]], rastTemplate, method='ngb')
-		writeRaster(newRast,  filename=paste0(rastDir, "Processed/", names(rastList)[[x]], "_norway.tif"), format = "GTiff", datatype="INT2S")
+		newRast <- raster::resample(rastList[[x]], rastTemplate, method='ngb')
+		newRast2 <- raster::extend(newRast, rastTemplate, value=NA)
+		writeRaster(newRast2,  filename=paste0(rastDir, "Processed/", names(rastList)[[x]], "_norway.tif"), format = "GTiff", datatype="INT2S")
 		})
-		
 
-		
-		
-		
-		
-		
+#Extend the corrine rasters
+corrineRastList <- list.files(paste0(rastDir, "Processed/"), "Corrine.*tif$", full.names=TRUE)
+b <- lapply(1:length(corrineRastList), function(x) {
+		newRast <- raster(corrineRastList[x])
+		newRast2 <- raster::extend(newRast, rastTemplate, value=NA)
+		writeRaster(newRast2,  filename=corrineRastList[x], format = "GTiff", datatype="INT2S", overwrite=TRUE)
+		})
+
+###########################
+#Mask out areas outside study region as NA
+maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
+
+envStack <- raster::stack(list.files(paste0(rastDir, "Processed/"), "*.tif$", full.names=TRUE))
+maskedStack <- mask(envStack, maskTemplate)
+
+setwd(paste0(rastDir, "Processed/masked/"))
+writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT2S")
+
+###########################
+#Convert rasters to .asc
+setwd(paste0(rastDir, "Processed/forMaxent/"))
+writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "ascii")
+
 		
 ###########################	
 #remove temp raster folder	
@@ -102,26 +122,3 @@ unlink(my_tmpdir, recursive = TRUE)
 #########################
 #END
 #########################
-
-#load environmental data
-
-varFolder <- c("CORINE2006", 
-
-# need
-# template raster (mask raster)
-# Categorical		corrine data as .tif clipped to mask
-# Continuous		distance to houses as raster or housing density
-# Continuous		distance to roads as raster
-# ??				accessibility - how is this different to distance to roads
-# Categorical 	land ownership /protected areas 
-
-
-		
-lapply(1:length(rastList), function(x) {
-		#newRast <- resample(x, Norway_template_raster, method='ngb')
-		print(paste0(rastDir, "Processed/", names(rastList)[[x]], ".tif"))
-		}
-		#crop(x, extent(Norway_template_raster)))
-		)
-		
-		crop(x, extent(Norway_template_raster)))
