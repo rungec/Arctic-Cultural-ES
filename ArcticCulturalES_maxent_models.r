@@ -43,7 +43,6 @@ rasterOptions(chunksize=1e+08)
 
 #number of core to use
 ncore=8
-cl <- makeCluster(ncore)
 
 ###########################
 #PRELIMINARY PROCESSING
@@ -104,9 +103,11 @@ dev.off()
 #occ=two column matrix or data.fram of lon and lat in that order
 
 #Sensitivity analysis of features & regularization of North dataset
+cl <- makeCluster(ncore)
+clusterExport(cl=cl, varlist=c("markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
 NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 		currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
+		currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
 			fc=c("H", "L"), #hinge & linear
 			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
@@ -118,18 +119,20 @@ NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 			overlap=TRUE,
 			parallel=FALSE)
 			return(currEval)
+		#save each model
+		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
 			}
-			#save each model
-			saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
 			)
 saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
 stopCluster(cl)
 
 bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
 #Sensitivity analysis of features & regularization of South dataset
+cl <- makeCluster(ncore)
+clusterExport(cl=cl, varlist=c("markersSsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
 SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
+		currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
 			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
 			fc=c("H", "L"), #hinge & linear
 			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
@@ -141,9 +144,8 @@ SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
 			overlap=TRUE,
 			parallel=FALSE)
 			return(currEval)
-			}
-			saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
-			)
+		saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
+			})
 saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
 stopCluster(cl)
 
