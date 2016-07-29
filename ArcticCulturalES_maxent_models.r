@@ -6,7 +6,7 @@
 ##########################################
 #Setup
 
-options(java.parameters = "-Xmx2g" ) #to give java more memory (2G)
+options(java.parameters = "-Xmx16g" ) #to give java more memory (16G)
 options(stringsAsFactors=FALSE) # turn off automatic factor coersion
 # options(scipen=9999)            # turn off scientific notation
 
@@ -17,7 +17,8 @@ library(foreign) #to read dbfs
 #library(rgdal) #to read shapefiles
 library(corrplot) #to plot correlation matrix
 
-wd <- "C:/Claire/Arctic_Cultural_ES/"
+#wd <- "C:/Claire/Arctic_Cultural_ES/"
+wd <- "/home/runge/Data/Arctic_Cultural_ES/"
 setwd(wd)
 outDir <- paste0(wd, "Maxent runs/")
 
@@ -79,16 +80,15 @@ envStack <- envStack[[c("Corrine2006_norway_noSea","Distance_to_Coast_norway",  
 #set up background points
 alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
 bg <- randomPoint(alpineMask, n=10000)
+write.csv(paste0(outDir, "/backgroundpoints.csv"))
 
 #############################
 #MAXENT RUNS
 #############################
-
-#maxent(envStack, occurencedata, nbg=number of background points, factors=names of layers considered as categorical, args=arguments passed to maxent, removeDuplicates=FALSE, path=place to store output files)
-
-#Conduct sensitivity analysis to evaluate optimal set of regularization multipliers and evaluate model fit #hinge only
+#Conduct sensitivity analysis to evaluate optimal set of regularization multipliers and evaluate model fit #hinge and linear features only
 #occ=two column matrix or data.fram of lon and lat in that order
 
+#Sensitivity analysis of features & regularization of North dataset
 NmodelEval <- lapply(1:length(cultESlist), function(x) {
 		currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
 		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
@@ -100,12 +100,15 @@ NmodelEval <- lapply(1:length(cultESlist), function(x) {
 			overlap=FALSE,
 			kfolds=10,
 			bin.output=TRUE,
-			rasterPreds=FALSE, 
-			parallel=FALSE)
+			rasterPreds=TRUE, 
+			overlap=TRUE,
+			parallel=TRUE, 
+			numCores=ncore)
 			return(currEval)
 			})
 saveRDS(NmodelEval, file=paste0(outDir, "/ENMevalofNmodel.rds"))
 
+#Sensitivity analysis of features & regularization of South dataset
 SmodelEval <- lapply(1:length(cultESlist), function(x) {
 		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
 		currEval <- ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
@@ -117,12 +120,18 @@ SmodelEval <- lapply(1:length(cultESlist), function(x) {
 			overlap=FALSE,
 			kfolds=10,
 			bin.output=TRUE,
-			clamp=TRUE,
-			rasterPreds=FALSE, 
-			parallel=FALSE)
+			rasterPreds=TRUE, 
+			overlap=TRUE,
+			parallel=TRUE, 
+			numCores=ncore)
 			return(currEval)
 			})
 saveRDS(SmodelEval, file=paste0(outDir, "/ENMevalofSmodel.rds"))
+
+
+
+
+
 			
 #Test how well the different datasets predict each otherchange
 ENMevaluate(occ, envStack[2:length(envStack@layers)], 
@@ -154,7 +163,10 @@ Nmodel <- lapply(1:length(cultESlist), function(x) {
 			names(currMod) <- cultESlist[x]
 			return(currMod)
 			})
-			
+
+
+
+#maxent(envStack, occurencedata, nbg=number of background points, factors=names of layers considered as categorical, args=arguments passed to maxent, removeDuplicates=FALSE, path=place to store output files)			
 me <- maxent(predictors, occtrain, factors='biome', path="C:/Claire/Arctic_Cultural_ES/Maxent runs/test", args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE'))
 pmap <- predict(me, predictors, path="C:/Claire/Arctic_Cultural_ES/Maxent runs/test/test.tif", progress="text", format="GTiff", args=c('outputformat=cumulative', 'perspeciesresults=true', 'threads=3'))
 
