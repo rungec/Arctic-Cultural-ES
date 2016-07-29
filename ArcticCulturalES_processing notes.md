@@ -47,14 +47,14 @@ environments::mask Norway_border_10kmbuffer.shp
 *ArcGIS*  
 Spatial Analyst::Extract by Mask  
 inputraster: D:\Arctic Cultural ES\Spatial data\CORINE2006\Norway.tif  
-mask feature: Norway_template_raster.tif 
+mask feature: Norway_template_raster.tif  
 *In r ArcticCulturalES_createInputs.r* 
 extend raster to match Norway_template_raster.tif   
 > Corrine2006_norway.tif
 
 ###set sea as NA
 *ArcGIS*  
-reclassify Corrine2006_norway.tif value=44 -> NoData 
+reclassify Corrine2006_norway.tif value=44 -> NoData  
 *In r ArcticCulturalES_createInputs.r* 
 extend raster to match Norway_template_raster.tif  
 > Corrine2006_norway_noSea.tif
@@ -65,6 +65,9 @@ extend raster to match Norway_template_raster.tif
 Alpine= T_CLIM=='Z' in LANMAP2_LEV1.shp LANMAP-2 2007 Landscape map for Europe  
 Clip to Norway_border_10kmbuffer.shp & dissolve  
 > Norway_alpine.shp
+*In r ArcticCulturalES_createInputs.r*
+Made a mask to limit Maxent background to alpine climate regions (0 if alpine, else NA)  
+> Norway_alpine.tif & Norway_alpine.asc
 
 note that this shp has been oversimplified and many coastal islands are missing
 
@@ -109,11 +112,20 @@ applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA
 output as asciis for Maxent  
 > .asc rasters in folder "forMaxent"
 
-
+###
 ***
 ###*28/07/16*
 ##Maxent processing
+*in R using ArcticCulturalES_maxent_models.r*
 
+###Correlation of environmental variables
+Checked correlation
+Most variables show low correlation, with the exception of distance to road and distance to house which show pearson correlation coefficient of 0.76. Given road is a variable previously identified as important, we retain it in the models and remove distance to house to allow the response curves to be more easily interpreted. The next highest correlation was the corrine (land cover) dataset which showed correlation of -0.54 with distance to coast, -0.56 with distance to town.  
+Saved as .rds which can be loaded to R using readRDS  
+
+> folder: Maxent runs\Correlation of variables\
+> CorrelationPlotofEnvironmentalVariables.png
+> CorrelationofEnvironmentalVariables.rds
 
 ***
 ArcGIS version 10.3.1
