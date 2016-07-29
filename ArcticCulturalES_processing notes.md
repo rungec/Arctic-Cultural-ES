@@ -6,6 +6,7 @@ output: html_document
 
 This is a summary of the data processing and analysis performed in relation to the Arctic CultES project led by Vera Hausner and undertaken by Claire Runge in 2016.
 
+
 ***
 ##Preparation of PPGIS data
 *ArcGIS*  
@@ -46,12 +47,16 @@ environments::mask Norway_border_10kmbuffer.shp
 *ArcGIS*  
 Spatial Analyst::Extract by Mask  
 inputraster: D:\Arctic Cultural ES\Spatial data\CORINE2006\Norway.tif  
-mask feature: Norway_template_raster.tif  
+mask feature: Norway_template_raster.tif 
+*In r ArcticCulturalES_createInputs.r* 
+extend raster to match Norway_template_raster.tif   
 > Corrine2006_norway.tif
 
 ###set sea as NA
 *ArcGIS*  
-reclassify Corrine2006_norway.tif value=44 -> NoData  
+reclassify Corrine2006_norway.tif value=44 -> NoData 
+*In r ArcticCulturalES_createInputs.r* 
+extend raster to match Norway_template_raster.tif  
 > Corrine2006_norway_noSea.tif
 
 ###*27/07/16*
@@ -88,7 +93,8 @@ Converted to raster using Norway_template_raster as template. Value =2,3
 
 ###Data that is already rasterized
 *In r ArcticCulturalES_createInputs.r*  
-resampled to Norway_template_raster. Rasters were already at 100m resolution and correct projection, just needed cropping and resampling to overlap.  
+resampled to Norway_template_raster. Rasters were already at 100m resolution and correct projection, just needed cropping and resampling to overlap. 
+extend raster to match Norway_template_raster.tif
 
 > distance_to_Town_norway.tif = "SSB/Tettsted2015/tet_dist2015"  
 > distance_to_River_norway.tif = "N50 Data/Rivers50/river_dist"  
@@ -96,9 +102,20 @@ resampled to Norway_template_raster. Rasters were already at 100m resolution and
 > distance_to_Road_norway.tif = "N250 Data/Roads250/roaddist"  
 > distance_to_House_norway.tif = "N250 Data/Buildings250/house_dist"  
 
+###All data
+applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA  
+> .tif rasters in folder "masked"
+
+output as asciis for Maxent  
+> .asc rasters in folder "forMaxent"
+
+
 ***
 ###*28/07/16*
 ##Maxent processing
 
 
-
+***
+ArcGIS version 10.3.1
+R version 3.2.3
+***
