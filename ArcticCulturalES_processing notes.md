@@ -101,7 +101,7 @@ extend raster to match Norway_template_raster.tif
 
 > distance_to_Town_norway.tif = "SSB/Tettsted2015/tet_dist2015"  
 > distance_to_River_norway.tif = "N50 Data/Rivers50/river_dist"  
-> distance_to_Coast_norway.tif = "N250 Data/Coastline250/coastdistance"  
+> *distance_to_Coast_norway.tif = "N250 Data/Coastline250/coastdistance" see edits below* 
 > distance_to_Road_norway.tif = "N250 Data/Roads250/roaddist"  
 > distance_to_House_norway.tif = "N250 Data/Buildings250/house_dist"  
 
@@ -111,6 +111,15 @@ applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA
 
 output as asciis for Maxent  
 > .asc rasters in folder "forMaxent"
+
+###Reprocessing of Distance_to_Coast_norway raster
+This raster has NA values across much of the study region. This raster was subsetquently remade from N250 Data\Coastline250\coastlinel2.shp 
+*ArcGIS*
+Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif  
+*In r ArcticCulturalES_createInputs.r*  
+Applied mask of Norway_alpine, saved as .asc  
+
+> Distance_to_Coast_norway
 
 ###
 ***
