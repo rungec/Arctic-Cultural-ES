@@ -62,7 +62,7 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
-varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
@@ -238,7 +238,7 @@ clusterExport(cl=cl, varlist=c("markersCombined", "bg", "envStack", "rastDir", "
 ComboModel <- lapply(1:length(cultESlist), function(x) {
 			
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Base run/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "Combined model/Base run/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
