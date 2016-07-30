@@ -62,7 +62,7 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
-varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
@@ -183,7 +183,7 @@ Nmodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc','beta_hinge=4'), path=currOutPath)
 			
 			#make predictive maps
-			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3'))
+			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
 			raster::writeRaster(currMap, filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff")
 			
 			#save model
@@ -200,7 +200,7 @@ stopCluster(cl)
 
 #set up cluster
 cl <- makeCluster(ncore)
-clusterExport(cl=cl, varlist=c("markersNsub", "markersSsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
 
 #run maxent model for all cultES
 Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
@@ -224,6 +224,37 @@ Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 			
 stopCluster(cl)
 
+########################
+#Base run of model created with both north and south data with response curves & jackknife
+# to do:
+# fill in regularisation parameters 'beta_hinge=4'
+markersCombined <- rbind(markersNsub, markersSsub)
+
+#set up cluster
+cl <- makeCluster(ncore)
+clusterExport(cl=cl, varlist=c("markersCombined", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+
+#run maxent model for all cultES
+ComboModel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base run/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc','beta_hinge=4'), path=currOutPath)
+			
+			#make predictive maps
+			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')) 
+			raster::writeRaster(currMap, filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff")
+			
+			#save model
+			names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+					
+stopCluster(cl)
 
 
 
