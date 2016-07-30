@@ -7,6 +7,7 @@
 #Setup
 
 options(java.parameters = "-Xmx16g" ) #to give java more memory (16G)
+options(java.parameters = "-Xmx2g" ) #to give java more memory (2G)
 options(stringsAsFactors=FALSE) # turn off automatic factor coersion
 # options(scipen=9999)            # turn off scientific notation
 
@@ -61,11 +62,10 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
-varnames <- c("Corrine2006_norway_noSea","Distance_to_Coast_norway",  "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
-
 
 #############################
 #check correlation of environmental variables
@@ -180,7 +180,7 @@ Nmodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 			dir.create(currOutPath)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), path=currOutPath, args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'beta_hinge=4'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc','beta_hinge=4'), path=currOutPath)
 			
 			#make predictive maps
 			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
@@ -210,7 +210,7 @@ Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 			dir.create(currOutPath)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), path=currOutPath, args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'beta_hinge=4'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, nbg=10000, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc','beta_hinge=4'), path=currOutPath)
 			
 			#make predictive maps
 			currMap <- dismo::predict(currMod, envStack, args=c('outputformat=cumulative', 'threads=3')), 
