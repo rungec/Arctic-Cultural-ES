@@ -112,6 +112,9 @@ applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA
 output as asciis for Maxent  
 > .asc rasters in folder "forMaxent"
 
+clipped extent to norway_alpine.shp  
+> .asc rasters in folder "forMaxent_predictions"
+
 ###Reprocessing of Distance_to_Coast_norway raster
 This raster has NA values across much of the study region. This raster was subsetquently remade from N250 Data\Coastline250\coastlinel2.shp 
 *ArcGIS*
@@ -120,6 +123,9 @@ Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set
 Applied mask of Norway_alpine, saved as .asc  
 
 > Distance_to_Coast_norway
+
+
+
 
 ###
 ***
