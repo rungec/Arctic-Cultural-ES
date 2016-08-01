@@ -122,6 +122,20 @@ alpineshp <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Nor
 alpinerast <- mask(rastTemplate, alpineshp)
 writeRaster(alpinerast, filename=paste0(rastDir, "Processed/Templates and boundaries/Norway_alpine.tif"), format = "GTiff", datatype="INT2S")
 writeRaster(alpinerast, filename=paste0(rastDir,"Processed/forMaxent/Norway_alpine.asc"), format = "ascii")
+
+###########################
+#Clip rasters
+
+setwd(paste0(rastDir, "Processed/forMaxent_prediction/"))
+maxentRastList <- list.files(paste0(rastDir, "Processed/forMaxent"), ".asc$", full.names=TRUE)
+
+b <- lapply(1:length(maxentRastList), function(x) {
+		currRast <- raster(maxentRastList[x])
+		newRast2 <- raster::crop(currRast, extent(alpineshp), filename=basename(maxentRastList[x]), format="ascii")
+		return()
+		})
+
+
 		
 ###########################	
 #remove temp raster folder	
