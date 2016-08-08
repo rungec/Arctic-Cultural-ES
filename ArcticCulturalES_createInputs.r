@@ -61,9 +61,12 @@ write.csv(counttable, paste0(wd, "Cultural PPGIS Data/NumberofPointsbyCEScategor
 ############################
 #Processing shps to rasters
 #Protected areas
-PAshp <- readOGR(paste0(rastDir, "Original/Norway protected areas"), "Protected area Norway Svalbard")
-PArast <- rasterize(PAshp, rastTemplate, field="IUCNCat", fun='min', background=0, filename=paste0(rastDir, "Processed/Protected_areas_norway.tif"), format = "GTiff", datatype="INT2S")
-PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0, rep(1, 7)), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_truefalse.tif"), format = "GTiff", datatype="INT2S")
+#PAshp <- readOGR(paste0(rastDir, "Original/Norway protected areas"), "Protected area Norway Svalbard")
+#PArast <- rasterize(PAshp, rastTemplate, field="IUCNCat", fun='min', background=0, filename=paste0(rastDir, "Processed/Protected_areas_norway.tif"), format = "GTiff", datatype="INT2S")
+#PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0, rep(1, 7)), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_truefalse.tif"), format = "GTiff", datatype="INT2S")
+PArast <- raster(paste0(rastDir, "Processed/Protected_areas_norway.tif"))
+PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0,1,1,1,1,2,2,0), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_forothervalues.tif"), format = "GTiff", datatype="INT2S") #nature protection (iucn1-4) = 1; managed landscapes (iucn 5,6) = 2; not protected = 0
+PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0,1,2,3,3,4,4,0), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_forbiological.tif"), format = "GTiff", datatype="INT2S") #group 1: nature reserve; national park, iucn(2,3,4) = 3 ; (IUCN class 5,6) = 4; not protected = 0
 
 #Important ecological areas
 Ecolshp <- readOGR(paste0(rastDir, "Original/NATURBASE/Naturtyper"), "Naturtyper_flater")
@@ -72,8 +75,37 @@ Ecolrast <- rasterize(Ecolbuff, rastTemplate, field="VERDIint", background=0, fu
 
 #State commons
 stateshp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
-statesub <- stateshp[stateshp@data$EKAT %in% c(2,3),]
-staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway.tif"), format = "GTiff", datatype="INT2S")
+statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
+staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
+staterast2 <- reclassify(staterast, rcl=matrix(c(0:6, 0,rep(1, 6)), ncol=2), filename=paste0(rastDir, "Processed/State_commons_norway_binary.tif"), format = "GTiff", datatype="INT2S") #private or private commons=0; state (state or municipal commons) =1
+
+#water features
+# lakes <- readOGR(paste0(rastDir, "Original/N50 Data/Lakes50"), "Innsjo_Innsjo")
+# rivers <- readOGR(paste0(rastDir, "Original/N50 Data/Rivers50"), "Elv_Elvenett")
+# riverssub <- rivers[rivers@data$objType=='ElvBekkMidtlinje',]
+# allwater <- gUnion(lakes, riverssub)
+watershp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
+statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
+staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
+
+##############################
+#CORRINE2012
+corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a")
+corrineshp@data$newcode <- 1
+corrineclass <- list(broadleafforest=c(311, 313), coniferforest=c(312), heathshrub=c(321:324), sparselyvegetated=c(331:335), cropland=c(211, 212, 213, 221, 222, 223))
+
+a <- lapply(c(1:length(corrineclass)), function(x) {
+		currclass <- corrineclass[[x]]
+		currshp <- corrineshp[corrineshp@data$CLC12_KODE %in% currclass, ]
+		corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")
+		focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
+		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
+		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "ascii")
+		return()
+		})
+
+
+
 
 ##############################
 #Changing resolution of rasters
