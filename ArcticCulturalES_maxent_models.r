@@ -391,7 +391,7 @@ for (y in c("Combined model", "North model", "South model"){
 
 ######################
 #test N model against S data
-
+bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
 for (x in 1:length(cultESlist)){
 	currOutPath <- paste0(outDir, "/North model/Test NS data/", as.character(cultESlist[x]))
 	dir.create(currOutPath)
@@ -405,6 +405,7 @@ for (x in 1:length(cultESlist)){
 
 ######################
 #test S model against N data
+bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
 for (x in 1:length(cultESlist)){
 	currOutPath <- paste0(outDir, "/South model/Test NS data/", as.character(cultESlist[x]))
 	dir.create(currOutPath)
