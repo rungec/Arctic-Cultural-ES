@@ -59,6 +59,18 @@ reclassify Corrine2006_norway.tif value=44 -> NoData
 extend raster to match Norway_template_raster.tif  
 > Corrine2006_norway_noSea.tif
 
+###CORRINE2012
+*In r ArcticCulturalES_createInputs.r*
+Calculated percentage of land cover in 3km (2900m) square around central cell
+
+> Corrine2012_norway_xxx_3km.tif  
+> broadleafforest = corrine classes (311, 313)  
+> coniferforest = corrine classes (312)  
+> heathshrub = corrine classes (321:324)  
+> sparselyvegetated = corrine classes (331:335)  
+> cropland = corrine classes (211, 212, 213, 221, 222, 223)
+
+
 ###*27/07/16*
 ###Alpine climate regions within norway
 *ArcGIS*  
@@ -78,6 +90,11 @@ Added integer field "IUCNCat" (1-6=IUCN Ia to IUCN VI, 7=no IUCN category)
 *In r ArcticCulturalES_createInputs.r*  
 Converted to raster using Norway_template_raster as template. Value =1-7  
 > Protected_areas_norway.tif
+*06/08/16*  
+Reclassified into five classes: 1= nature reserve; 2= national park; 3= iucn(3,4); 4= IUCN class 5,6); 0= not protected  
+> Protected_areas_norway_forbiological.tif  
+Reclassified into three classes: 1 = nature protection (iucn1-4); 2= managed landscapes (iucn 5,6); 0= not protected  
+> Protected_areas_norway_forothervalues.tif  
 
 ###Ecologically important regions
 NATURBASE/Naturtyper_flater.shp (use all categories; "VERDI" Localt viktig=locally important; Viktig=Important; Svaert viktig=very important)  
@@ -87,12 +104,28 @@ Added integer field VERDIint Localt viktig=10; Viktig=20; Svaert viktig=30
 as many of the polygons are very small, buffered by 49m. This should be enough so the polygon overlaps the raster cell centre if the polygon falls within the raster cell, but not so much that polygons that don't overlap a raster cell are assigned to that cell.
 Converted to raster using Norway_template_raster as template. Value =10,20,30  
 > Ecological_areas_norway.tif
+*note: we decided not to include these in the models, and instead use them to compare whether and how well people see the same biological values as experts*
+
 
 ###State land
 Statskog eiendom/Statskog eiendom 2014 (use only categories EKAT=2 or 3)  
 *In r ArcticCulturalES_createInputs.r*  
 Converted to raster using Norway_template_raster as template. Value =2,3  
 > State_commons_norway.tif
+07/08/16
+Converted to raster using Norway_template_raster as template. private land or private commons = 0; State commons 2,3,4,6 = 1
+> State_commons_norway_all.tif
+> State_commons_norway_binary.tif
+
+###New Distance to Waterbodies
+*in ArcGIS 06/08/16*
+Combined Lakes & Rivers from N50 Data
+lakes =Original/N50 Data/Lakes50/Innsjo_Innsjo.shp
+rivers =Original/N50 Data/Rivers50/Elv_Elvenett.shp, objType=='ElvBekkMidtlinje'
+> waterbodies.shp
+
+Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif 
+> Distance_to_waterbodies.tif
 
 ###Data that is already rasterized
 *In r ArcticCulturalES_createInputs.r*  
@@ -123,7 +156,7 @@ Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set
 Applied mask of Norway_alpine, saved as .asc  
 
 > Distance_to_Coast_norway
-
+*Note this was not included in the final modelling as its interpretation is based on supposition - it is an indirect metric of the things people percieve, like whether landscape is coastal or mountainous*  
 
 
 
