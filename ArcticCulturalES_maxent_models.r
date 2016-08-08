@@ -67,22 +67,29 @@ markersSsub <- subset(markersS, species %in% cultESlist)
 #load environmental data
 rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
 
-varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
-
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 
+
 #############################
 #remove unwanted variables
+varnames <- c("Corrine2012_norway_broadleafforest_3km", "Corrine2012_norway_coniferforest_3km", "Corrine2012_norway_heathshrub_3km",  
+"Corrine2012_norway_sparselyvegetated_3km", "Corrine2012_norway_wetland_3km", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdevelopment_norway","State_commons_norway_binary", "Protected_areas_norway_forothervalues", "Protected_areas_norway_forbiological")# dput(list.files(rastDir, "*.asc$"))
+#varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+
 envStack <- envStack[[varnames]]
+
 
 #############################
 #check correlation of environmental variables
-cors <- layerStats(envStack, 'pearson', na.rm=TRUE)
-saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables.rds")) #readRDS to open
+envStackTIF <- raster::stack(list.files(paste0(wd, "Spatial data/Processed/masked/"), "*.tif$", full.names=TRUE))
+names(envStackTIF) <- sapply(list.files(paste0(wd, "Spatial data/Processed/masked/"), "*.tif$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStackTIF <- envStackTIF[[varnames]]
+cors <- layerStats(envStackTIF, 'pearson', na.rm=TRUE)
+saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables2.rds")) #readRDS to open
 #plot correlation matrix
 outPath <-  
-png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables.png"), width=620, height=480)
+png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables2.png"), width=620, height=480)
 corrplot(cors[[1]], method='number', type='lower')
 dev.off()
 
@@ -181,15 +188,54 @@ NScompare <- lapply(1:length(cultESlist), function(x) {
 #run maxent model across all cultES
 #Nmodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Nmodel <- lapply(6:length(cultESlist), function(x) {
+#set up background points
+#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
+Nmask <- raster(paste0(rastDir, "North_municipalities.asc"))
+bg <- randomPoints(Nmask, n=10000)
+write.csv(bg, paste0(outDir, "backgroundpoints_north.csv"), row.names=FALSE)
+
+#set up variables
+varnames <- c("North_municipalities", "Corrine2012_norway_broadleafforest_3km", "Corrine2012_norway_coniferforest_3km", "Corrine2012_norway_heathshrub_3km",  
+"Corrine2012_norway_sparselyvegetated_3km", "Corrine2012_norway_wetland_3km", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdisturbance_norway","State_commons_norway_binary", "Protected_areas_norway_forothervalues")
+envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStack <- envStack[[varnames]]
+
+#run model
+Nmodel <- lapply(2:(length(cultESlist)-1), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "North model/Response curves and jacknife/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife2/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Protected_areas_norway_forothervalues", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+
+###run model for biological & undisturbnature values
+cultESlist <- c("biological", "undisturbnature")
+
+#set up variables
+varnames <- c("North_municipalities", "Corrine2012_norway_broadleafforest_3km", "Corrine2012_norway_coniferforest_3km", "Corrine2012_norway_heathshrub_3km",  
+"Corrine2012_norway_sparselyvegetated_3km", "Corrine2012_norway_wetland_3km", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdisturbance_norway","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStack <- envStack[[varnames]]
+
+bg <- read.csv(paste0(outDir, "backgroundpoints_north.csv"))
+Nmodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife2/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -213,15 +259,58 @@ Nmodel <- lapply(6:length(cultESlist), function(x) {
 #run maxent model for all cultES
 #Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
 
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Smodel <- lapply(6:length(cultESlist), function(x) {
-			
+#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
+#Smodel <- lapply(6:length(cultESlist), function(x) {
+	
+
+#set up background points
+#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
+Smask <- raster(paste0(rastDir, "South_municipalities.asc"))
+bg <- randomPoints(Smask, n=10000)
+write.csv(bg, paste0(outDir, "backgroundpoints_south.csv"), row.names=FALSE)
+
+#set up variables
+varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_3km", "Corrine2012_norway_coniferforest_3km", "Corrine2012_norway_heathshrub_3km",  
+"Corrine2012_norway_sparselyvegetated_3km", "Corrine2012_norway_wetland_3km", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdisturbance_norway","State_commons_norway_binary", "Protected_areas_norway_forothervalues")
+envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStack <- envStack[[varnames]]
+
+#run model
+Smodel <- lapply(2:(length(cultESlist)-1), function(x) {	
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Response curves and jacknife/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife2/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Protected_areas_norway_forothervalues", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+
+			
+###run model for biological & undisturbnature values
+cultESlist <- c("biological", "undisturbnature")
+
+#set up variables
+varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_3km", "Corrine2012_norway_coniferforest_3km", "Corrine2012_norway_heathshrub_3km",  
+"Corrine2012_norway_sparselyvegetated_3km", "Corrine2012_norway_wetland_3km", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdisturbance_norway","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStack <- envStack[[varnames]]
+
+bg <- read.csv(paste0(outDir, "backgroundpoints_south.csv"))
+#run model
+Smodel <- lapply(1:length(cultESlist), function(x) {	
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife2/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
