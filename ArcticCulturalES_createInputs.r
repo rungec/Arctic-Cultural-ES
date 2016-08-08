@@ -156,6 +156,24 @@ alpinerast <- mask(rastTemplate, alpineshp)
 writeRaster(alpinerast, filename=paste0(rastDir, "Processed/Templates and boundaries/Norway_alpine.tif"), format = "GTiff", datatype="INT2S")
 writeRaster(alpinerast, filename=paste0(rastDir,"Processed/forMaxent/Norway_alpine.asc"), format = "ascii")
 
+##########
+#Make mask raster from municipality boundaries
+muns <- readOGR(paste0(rastDir, "Original/BasemapN500"), "n500_municipalsf")
+#dput(muns@data$NAVN)
+#north study region
+northmuns <- muns[muns@data$NAVN %in% c("Sørfold", "Bodø", "Fauske", 
+"Meløy", "Gildeskål", "Saltdal", "Rødøy", "Rana", "Beiarn"),]
+writeOGR(northmuns, paste0(rastDir, "Processed/Templates and boundaries"), "North_municipalities", driver="ESRI Shapefile")
+northrast <- mask(rastTemplate, northmuns)
+writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities.tif"), format = "GTiff", datatype="INT2S")
+writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities.asc"), format = "ascii")
+#south study region
+southmuns <- muns[muns@data$NAVN %in%c("Skjåk","Lom", "Vågå", "Vik","Balestrand","Luster","Årdal", "Vang","Voss","Sogndal","Leikanger", "Høyanger", "Skjåk","Lærdal", "Aurland"),]
+writeOGR(southmuns, paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities", driver="ESRI Shapefile")
+southrast <- mask(rastTemplate, southmuns)
+writeRaster(southrast, filename=paste0(rastDir, "Processed/Templates and boundaries/South_municipalities.tif"), format = "GTiff", datatype="INT2S")
+writeRaster(southrast, filename=paste0(rastDir,"Processed/forMaxent/South_municipalities.asc"), format = "ascii")
+
 ###########################
 #Clip rasters
 
