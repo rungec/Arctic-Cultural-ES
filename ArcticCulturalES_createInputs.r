@@ -90,9 +90,10 @@ staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filen
 
 ##############################
 #CORRINE2012
-corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a")
+maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
+corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a_UTM33N")
 corrineshp@data$newcode <- 1
-corrineclass <- list(broadleafforest=c(311, 313), coniferforest=c(312), heathshrub=c(321:324), sparselyvegetated=c(331:335), cropland=c(211, 212, 213, 221, 222, 223))
+corrineclass <- list(broadleafforest=c(311, 313), coniferforest=c(312), heathshrub=c(321:324), sparselyvegetated=c(331:335), cropland=c(211, 212, 213, 221, 222, 223, 231, 241:244), wetland=c(411, 412, 422, 423))
 
 a <- lapply(c(1:length(corrineclass)), function(x) {
 		currclass <- corrineclass[[x]]
@@ -100,7 +101,7 @@ a <- lapply(c(1:length(corrineclass)), function(x) {
 		corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")
 		focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
 		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
-		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "ascii")
+		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.asc"), format = "ascii")
 		return()
 		})
 
