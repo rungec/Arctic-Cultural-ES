@@ -70,6 +70,14 @@ Calculated percentage of land cover in 3km (2900m) square around central cell
 > sparselyvegetated = corrine classes (331:335)  
 > cropland = corrine classes (211, 212, 213, 221, 222, 223)
 
+###Industrial areas
+*ArcGIS*  
+Merged point files Vankraft_vannkraftverk (dams) & Vindkraft_Utbygd_Vindkraftverk (wind farms) and buffered by 71m (sqrt(50^2+50^2)) ie so that if a point falls in the corner of a cell, the buffer will overlap the centroid of that cell  
+Merged line files Vankraft_vannvei (water pipelines) & Kraftnett_Kraftlinje (powerlines) and buffered by 71m 
+Merged the point and line features from above with Corrine2012_minesdumpsconstruction.shp : Corrine 2012 where CLC12_KODE = c(131, 132, 133)  
+> Industrial_disturbance.shp  
+Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif 
+> Distance_to_industrialdisturbance_norway.tif  
 
 ###*27/07/16*
 ###Alpine climate regions within norway
