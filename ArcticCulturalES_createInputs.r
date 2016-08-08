@@ -122,7 +122,7 @@ Distance_to_House=raster(paste0(rastDir, "Original/N250 Data/Buildings250/house_
 a <- lapply(1:length(rastList), function(x) {
 		newRast <- raster::resample(rastList[[x]], rastTemplate, method='ngb')
 		newRast2 <- raster::extend(newRast, rastTemplate, value=NA)
-		writeRaster(newRast2,  filename=paste0(rastDir, "Processed/", names(rastList)[[x]], "_norway.tif"), format = "GTiff", datatype="INT2S")
+		writeRaster(newRast2,  filename=paste0(rastDir, "Processed/", names(rastList)[[x]], "_norway.tif"), format = "GTiff", datatype="INT4S")
 		})
 
 #Extend the corrine rasters
@@ -141,7 +141,7 @@ envStack <- raster::stack(list.files(paste0(rastDir, "Processed/"), "*.tif$", fu
 maskedStack <- mask(envStack, maskTemplate)
 
 setwd(paste0(rastDir, "Processed/masked/"))
-writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT2S")
+writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT4S")
 
 ###########################
 #Convert rasters to .asc
