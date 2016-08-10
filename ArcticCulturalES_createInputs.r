@@ -58,6 +58,13 @@ markersAll$region = rep(c("north", "south"), times=c(nrow(markersN), nrow(marker
 counttable <- with(markersAll, table(category, region))
 write.csv(counttable, paste0(wd, "Cultural PPGIS Data/NumberofPointsbyCEScategory.csv"))
 
+#clip south data to municipality boundaries
+markersSshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_south_UTM33N")
+Smuns <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities")
+markersSsub <- markersSshp[Smuns,] #clip to municipal boundaries
+writeOGR(markersSsub, paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_south_UTM33N_municipal", driver="ESRI Shapefile") 
+write.csv(markersSsub@data, paste0(wd, "PPGIS data/Original/shps/PPGIS_Markers_south_UTM33N_municipal.csv"), row.names=FALSE)
+
 ############################
 #Processing shps to rasters
 #Protected areas
