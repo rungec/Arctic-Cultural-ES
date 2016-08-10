@@ -14,7 +14,7 @@ library(ENMtools) #for AICc
 library(raster)
 library(foreign) #read dbfs
 library(rgdal) #read shps
-library(rgeos) #for buffer
+library(rgeos) #for buffer & gIntersection
 library(dplyr) #for %>%
 
 wd <- "C:/Claire/Arctic_Cultural_ES/"
@@ -134,7 +134,7 @@ a <- lapply(c(1:length(corrineclass)), function(x) {
 		currshp <- corrineshp[corrineshp@data$CLC12_KODE %in% currclass, ]
 		#corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")		#focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
 		corrRast <- raster(paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"))
-		focRast <- focal(corrRast, w=mwm, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		focRast <- focal(corrRast, w=mwm, na.rm=TRUE, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
 		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
 		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.asc"), format = "ascii")
 		return()
@@ -202,6 +202,12 @@ writeOGR(northmuns, paste0(rastDir, "Processed/Templates and boundaries"), "Nort
 northrast <- mask(rastTemplate, northmuns)
 writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities.tif"), format = "GTiff", datatype="INT2S")
 writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities.asc"), format = "ascii")
+#clip the north to alpine
+northalp <- gIntersection(northmuns,alpineshp, byid=TRUE)
+writeOGR(northalp, paste0(rastDir, "Processed/Templates and boundaries"), "North_municipalities_alpine", driver="ESRI Shapefile")
+northrast <- mask(rastTemplate, northalp)
+writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities_alpine.tif"), format = "GTiff", datatype="INT2S")
+writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities_alpine.asc"), format = "ascii")
 #south study region
 southmuns <- muns[muns@data$NAVN %in%c("Skjåk","Lom", "Vågå", "Vik","Balestrand","Luster","Årdal", "Vang","Voss","Sogndal","Leikanger", "Høyanger", "Skjåk","Lærdal", "Aurland"),]
 writeOGR(southmuns, paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities", driver="ESRI Shapefile")
