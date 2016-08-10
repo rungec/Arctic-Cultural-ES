@@ -58,7 +58,7 @@ markersAll$region = rep(c("north", "south"), times=c(nrow(markersN), nrow(marker
 counttable <- with(markersAll, table(category, region))
 write.csv(counttable, paste0(wd, "Cultural PPGIS Data/NumberofPointsbyCEScategory.csv"))
 
-#clip south data to municipality boundaries
+#clip south data to municipality boundaries (north is clipped to alpine)
 markersSshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_south_UTM33N")
 Smuns <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities")
 markersSsub <- markersSshp[Smuns,] #clip to municipal boundaries
@@ -73,7 +73,7 @@ write.csv(markersSsub@data, paste0(wd, "PPGIS data/Original/shps/PPGIS_Markers_s
 #PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0, rep(1, 7)), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_truefalse.tif"), format = "GTiff", datatype="INT2S")
 PArast <- raster(paste0(rastDir, "Processed/Protected_areas_norway.tif"))
 PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0,1,1,1,1,2,2,0), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_forothervalues.tif"), format = "GTiff", datatype="INT2S") #nature protection (iucn1-4) = 1; managed landscapes (iucn 5,6) = 2; not protected = 0
-PArastTF <- reclassify(PArast, rcl=matrix(c(0:7, 0,1,2,3,3,4,4,0), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_forbiological.tif"), format = "GTiff", datatype="INT2S") #group 1: nature reserve; national park, iucn(2,3,4) = 3 ; (IUCN class 5,6) = 4; not protected = 0
+PArastmulti <- reclassify(PArast, rcl=matrix(c(0:7, 0,1,2,3,3,4,4,0), ncol=2), filename=paste0(rastDir, "Processed/Protected_areas_norway_forbiological.tif"), format = "GTiff", datatype="INT2S") #group 1: nature reserve; national park, iucn(2,3,4) = 3 ; (IUCN class 5,6) = 4; not protected = 0
 
 #Important ecological areas
 Ecolshp <- readOGR(paste0(rastDir, "Original/NATURBASE/Naturtyper"), "Naturtyper_flater")
@@ -85,27 +85,39 @@ stateshp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eien
 statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
 staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
 staterast2 <- reclassify(staterast, rcl=matrix(c(0:6, 0,rep(1, 6)), ncol=2), filename=paste0(rastDir, "Processed/State_commons_norway_binary.tif"), format = "GTiff", datatype="INT2S") #private or private commons=0; state (state or municipal commons) =1
+statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
+staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
+
+#Combine state commons & protected areas
+staterast2 <- raster(paste0(rastDir, "Processed/State_commons_norway_binary.tif")) 
+PArastTF <- raster(paste0(rastDir, "Processed/Protected_areas_norway_forothervalues.tif"))
+statePArast <- staterast2+(10*PArastTF)
+#0=private, unprotected; 10=nature protection, private; 11 = nature protection, state ; 20 = managed landscape, private; 21= managed landscape, state)
+	writeRaster(statePArast, filename=paste0(rastDir, "Processed/Governance_plus_protectedareas_norway.tif"), format = "GTiff", datatype="INT2S")
+maskedstatePArast <- mask(statePArast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Governance_plus_protectedareas_norway.tif"), format = "GTiff", datatype="INT2S")
+	writeRaster(maskedstatePArast, filename=paste0(rastDir, "Processed/forMaxent/Governance_plus_protectedareas_norway.asc"), format = "ascii")
+		
+
 
 #water features
 # lakes <- readOGR(paste0(rastDir, "Original/N50 Data/Lakes50"), "Innsjo_Innsjo")
 # rivers <- readOGR(paste0(rastDir, "Original/N50 Data/Rivers50"), "Elv_Elvenett")
 # riverssub <- rivers[rivers@data$objType=='ElvBekkMidtlinje',]
 # allwater <- gUnion(lakes, riverssub)
-watershp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
-statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
-staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
+#watershp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
+
 
 ##############################
 #CORRINE2012 moving window 
 maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
-corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a_UTM33N")
+corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a")
 corrineshp@data$newcode <- 1
 corrineclass <- list(broadleafforest=c(311, 313), coniferforest=c(312), heathshrub=c(321:324), sparselyvegetated=c(331:335), cropland=c(211, 212, 213, 221, 222, 223, 231, 241:244), wetland=c(411, 412, 422, 423))
 
 #function to make a circular weights matrix of given radius and resolution
 #NB radius must me an even multiple of res!
 make_circ_filter<-function(radius, res){
-  circ_filter<-matrix(NA, nrow=1+(2*radius/res), ncol=1+(2*radius/res))
+  circ_filter<-matrix(0, nrow=1+(2*radius/res), ncol=1+(2*radius/res))
   dimnames(circ_filter)[[1]]<-seq(-radius, radius, by=res)
   dimnames(circ_filter)[[2]]<-seq(-radius, radius, by=res)
   sweeper<-function(mat){
@@ -132,9 +144,9 @@ dimnames(mwm)<-NULL
 a <- lapply(c(1:length(corrineclass)), function(x) {
 		currclass <- corrineclass[[x]]
 		currshp <- corrineshp[corrineshp@data$CLC12_KODE %in% currclass, ]
-		#corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")		#focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
-		corrRast <- raster(paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"))
-		focRast <- focal(corrRast, w=mwm, na.rm=TRUE, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")		
+		#focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
+		focRast <- focal(corrRast, w=mwm, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
 		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
 		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.asc"), format = "ascii")
 		return()
@@ -195,6 +207,7 @@ writeRaster(alpinerast, filename=paste0(rastDir,"Processed/forMaxent/Norway_alpi
 #Make mask raster from municipality boundaries
 muns <- readOGR(paste0(rastDir, "Original/BasemapN500"), "n500_municipalsf")
 #dput(muns@data$NAVN)
+
 #north study region
 northmuns <- muns[muns@data$NAVN %in% c("Sørfold", "Bodø", "Fauske", 
 "Meløy", "Gildeskål", "Saltdal", "Rødøy", "Rana", "Beiarn"),]
@@ -202,12 +215,14 @@ writeOGR(northmuns, paste0(rastDir, "Processed/Templates and boundaries"), "Nort
 northrast <- mask(rastTemplate, northmuns)
 writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities.tif"), format = "GTiff", datatype="INT2S")
 writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities.asc"), format = "ascii")
+
 #clip the north to alpine
-northalp <- gIntersection(northmuns,alpineshp, byid=TRUE)
+northalp <- raster::intersect(northmuns,alpineshp)
 writeOGR(northalp, paste0(rastDir, "Processed/Templates and boundaries"), "North_municipalities_alpine", driver="ESRI Shapefile")
 northrast <- mask(rastTemplate, northalp)
 writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities_alpine.tif"), format = "GTiff", datatype="INT2S")
 writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities_alpine.asc"), format = "ascii")
+
 #south study region
 southmuns <- muns[muns@data$NAVN %in%c("Skjåk","Lom", "Vågå", "Vik","Balestrand","Luster","Årdal", "Vang","Voss","Sogndal","Leikanger", "Høyanger", "Skjåk","Lærdal", "Aurland"),]
 writeOGR(southmuns, paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities", driver="ESRI Shapefile")
