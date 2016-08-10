@@ -89,19 +89,47 @@ statesub <- stateshp[stateshp@data$EKAT %in% c(2,3,4,6),]
 staterast <- rasterize(statesub, rastTemplate, field="EKAT", background=0, filename=paste0(rastDir, "Processed/State_commons_norway_all.tif"), format = "GTiff", datatype="INT2S")
 
 ##############################
-#CORRINE2012
+#CORRINE2012 moving window 
 maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
 corrineshp <- readOGR(paste0(rastDir, "Original/CORINE2012"), "CORINE2012_Norge_ab21a_UTM33N")
 corrineshp@data$newcode <- 1
 corrineclass <- list(broadleafforest=c(311, 313), coniferforest=c(312), heathshrub=c(321:324), sparselyvegetated=c(331:335), cropland=c(211, 212, 213, 221, 222, 223, 231, 241:244), wetland=c(411, 412, 422, 423))
 
+#function to make a circular weights matrix of given radius and resolution
+#NB radius must me an even multiple of res!
+make_circ_filter<-function(radius, res){
+  circ_filter<-matrix(NA, nrow=1+(2*radius/res), ncol=1+(2*radius/res))
+  dimnames(circ_filter)[[1]]<-seq(-radius, radius, by=res)
+  dimnames(circ_filter)[[2]]<-seq(-radius, radius, by=res)
+  sweeper<-function(mat){
+    for(row in 1:nrow(mat)){
+      for(col in 1:ncol(mat)){
+        dist<-sqrt((as.numeric(dimnames(mat)[[1]])[row])^2 +
+          (as.numeric(dimnames(mat)[[1]])[col])^2)
+        if(dist<=radius) {mat[row, col]<-1}
+      }
+    }
+    return(mat)
+  }
+out<-sweeper(circ_filter)
+out<- out*100/sum(out, na.rm=TRUE)
+return(out)
+}
+
+#make moving window matrix
+currRadius <- 1000 #diameter of moving window
+mwm <- make_circ_filter(currRadius/2, 100)
+dimnames(mwm)<-NULL
+
+#create a raster of the amount of each land class in radius around central cell
 a <- lapply(c(1:length(corrineclass)), function(x) {
 		currclass <- corrineclass[[x]]
 		currshp <- corrineshp[corrineshp@data$CLC12_KODE %in% currclass, ]
-		corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")
-		focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
-		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
-		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.asc"), format = "ascii")
+		#corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"), format = "GTiff", datatype="INT2S")		#focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
+		corrRast <- raster(paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], ".tif"))
+		focRast <- focal(corrRast, w=mwm, filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Corrine2012_norway_", names(corrineclass)[[x]], "_",as.character(currRadius/1000), "km.asc"), format = "ascii")
 		return()
 		})
 
