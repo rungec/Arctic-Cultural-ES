@@ -184,6 +184,43 @@ Saved as .rds which can be loaded to R using readRDS
 > CorrelationPlotofEnvironmentalVariables.png
 > CorrelationofEnvironmentalVariables.rds
 
+###Maxent model testing runs
+####Response curves and jacknife
+First run. Automatic regularization, background from whole study region.
+After discussion, have come up with some different variables that are hav stronger justification, and are more readily explained by realistic hypotheses about people's behaviour and preferences. Primarily: Corine will be converted from a categorical layer to a series of layers describing the percentage of landcover type in a given radius around each cell. Will also include a layer describing the closeness of industrial development, and simplify the categorization of the protected area and state commons layers.  
+
+
+####Response curves and jacknife2
+Ran north & south models for all features. *regularization automatic*, background from north (municipalities unclipped) and south (municipality) study region boundaries respectively. 
+Noted that the north municipalites extend into the sea, so there are a lot of points very far from rivers in the sea. 
+Noticed that the distance to waterbodies only includes rivers; that the municipal boundaries mask was applied incorrectly in a couple of the runs; that I forgot to include cropland. 
+Otherwise, models are looking good and make sense. Possibly slight overfitting.
+Percentage of x in landscape rasters in *3km square* around central cell.
+State commons - two categories (private, government)
+Protected areas - 3 to 5 categories, more categories for bioligical and undisturbnature values; (nature protection, managed landscape, no protection).  
+
+####Response curves and jacknife3  
+Ran north & south models for biological and undisturbnature, and a few of the other values. *regularization (beta_hinge) =2*, background from north (municipalities clipped to alpine) and south (municipality) study region boundaries respectively.  
+Distance to industrial disturbance is highly correlated with Distance to waterbodies (pearson correlation 0.8) and the biological models show strong relationship to industrial (high probability close to industrial) and no relationship with waterbodies. For this reason, this run was cancelled, and distance to industrial disturbance was replaced with percent industrial in 1km.  
+#####variables used: 
+Percentage of x in landscape rasters in *1km circle* around central cell.
+#####For other values:  
+State commons & protected areas combined into a single variable - Governance_plus_protectedareas_norway (00 private not protected; 01 government not protected; 10 nature protection, private; 11 nature protection government; 20 managed landsape private; 21 managed landscape government)  
+#####For biological & undisturbnature:  
+State commons - two categories (private, government)  
+Protected areas - 5 categories, (nature protection, national park, iucn cat 3-4, managed landscape, no protection).  
+
+c("North_municipalities_alpine","South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
+"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbodies_norway2", "Distance_to_industrialdisturbance_norway2","State_commons_norway_binary",  "Protected_areas_norway_forbiological")  
+
+
+####Response curves and jacknife4
+Ran north & south models for biological and undisturbnature. regularization (beta_hinge) automatic (=1). Models show some overfitting.
+
+variables used: c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
+"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbodies_norway2", "Percent_industrial_1km","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+
+
 ***
 ArcGIS version 10.3.1
 R version 3.2.3
