@@ -86,10 +86,10 @@ envStackTIF <- raster::stack(list.files(paste0(wd, "Spatial data/Processed/maske
 names(envStackTIF) <- sapply(list.files(paste0(wd, "Spatial data/Processed/masked/"), "*.tif$"), function(x) strsplit(x, "\\.")[[1]][1])
 #envStackTIF <- envStackTIF[[varnames]]
 cors <- layerStats(envStackTIF, 'pearson', na.rm=TRUE)
-saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables3.rds")) #readRDS to open
+saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables4.rds")) #readRDS to open
 #plot correlation matrix
 
-png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables3.png"), width=620, height=480)
+png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables4.png"), width=620, height=480)
 corrplot::corrplot(cors[[1]], method='number', type='lower')
 dev.off()
 
