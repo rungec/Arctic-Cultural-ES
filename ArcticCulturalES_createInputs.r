@@ -105,7 +105,11 @@ maskedstatePArast <- mask(statePArast, maskTemplate, filename=paste0(rastDir, "P
 # riverssub <- rivers[rivers@data$objType=='ElvBekkMidtlinje',]
 # allwater <- gUnion(lakes, riverssub)
 #watershp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014")
-
+#is there any water within 500m of a cell?
+distwater <- raster(paste0(rastDir, "Processed/masked/Distance_to_waterbodies_norway2.tif"))
+distwater2 <- reclassify(distwater, matrix(c(-1, 500, 1, 500, 71500, 0), ncol=3, byrow=TRUE))
+writeRaster(distwater2, filename=paste0(rastDir, "Processed/masked/Water_within_500m_norway.tif"), format = "GTiff", datatype="INT2S")
+writeRaster(distwater2, filename=paste0(rastDir, "Processed/forMaxent/Water_within_500m_norway.asc"), format = "ascii")
 
 ##############################
 #CORRINE2012 moving window 
@@ -152,7 +156,15 @@ a <- lapply(c(1:length(corrineclass)), function(x) {
 		return()
 		})
 
-
+#creat a raster of amount of industry in radius
+maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
+		currshp <- readOGR("C:/Claire/Arctic_Cultural_ES/Spatial data/Processed/shps", "IndustryMerged")
+		currshp@data$newcode<- 1
+		corrRast <- rasterize(currshp, rastTemplate, field="newcode", background=0, filename=paste0(rastDir, "Processed/Percent_industrial.tif"), format = "GTiff", datatype="INT2S")		
+		#focRast <- focal(corrRast, w=matrix(100/(29*29), nrow=29, ncol=29), filename=paste0(rastDir, "Processed/Corrine2012_norway_", names(corrineclass)[[x]], "_3km.tif"), format = "GTiff", datatype="INT2S")
+		focRast <- focal(corrRast, w=mwm, filename=paste0(rastDir, "Processed/Percent_industrial", "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		maskedRast <- mask(focRast, maskTemplate, filename=paste0(rastDir, "Processed/masked/Percent_industrial", "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT2S")
+		writeRaster(maskedRast, filename=paste0(rastDir, "Processed/forMaxent/Percent_industrial", "_",as.character(currRadius/1000), "km.asc"), format = "ascii")
 
 
 ##############################
