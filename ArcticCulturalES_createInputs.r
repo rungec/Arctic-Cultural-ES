@@ -204,6 +204,17 @@ setwd(paste0(rastDir, "Processed/masked/"))
 writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT4S")
 
 ###########################
+#Mask out areas outside study region as NA (norway no water)
+# maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_nowater")
+
+# envStack <- raster::stack(list.files(paste0(rastDir, "Processed/"), "*.tif$", full.names=TRUE))
+# maskedStack <- mask(envStack, maskTemplate)
+
+# setwd(paste0(rastDir, "Processed/masked/"))
+# writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT4S")
+
+
+###########################
 #Convert rasters to .asc
 setwd(paste0(rastDir, "Processed/forMaxent/"))
 writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "ascii")

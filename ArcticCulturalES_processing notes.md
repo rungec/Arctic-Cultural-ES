@@ -4,7 +4,7 @@ author: "Claire Runge - NCEAS"
 output: html_document
 ---
 
-This is a summary of the data processing and analysis performed in relation to the Arctic CultES project led by Vera Hausner and undertaken by Claire Runge in 2016.
+This is a summary of the data processing and analysis performed in relation to the Arctic CultES project led by Vera Hausner and undertaken by Claire Runge in 2016/2017.
 
 
 ***
@@ -42,6 +42,9 @@ output extent: same as Norway_border_10kmbuffer.shp
 environments::snap to CORINE2006\Norway.tif  
 environments::mask Norway_border_10kmbuffer.shp  
 >Norway_template_raster.tif
+
+#in ArcGIS from CORRINE2012 select CLC12_KODE <> 523 then dissolve
+>Norway_nowater.shp
 
 ###Clip CORRINE2006
 *ArcGIS*  
@@ -167,7 +170,14 @@ Applied mask of Norway_alpine, saved as .asc
 > Distance_to_Coast_norway
 *Note this was not included in the final modelling as its interpretation is based on supposition - it is an indirect metric of the things people percieve, like whether landscape is coastal or mountainous*  
 
+###Bias grids for maxent
+Created bias grids for maxent using script *ArcticCulturalES_roadaccessmodel.r*
+Modelled the frequency of PPGIS data by proximity to road using a non-linear least-squares model, then predicted that to the distance_to_Road_norway.tif raster. 
 
+value is predicted frequency of ppgis data  
+> BiasGrid_distancetoroad_normalised.tif  
+value is normalised predicted frequency between 0 & 1  
+> BiasGrid_distancetoroad_normalised.tif  
 
 ###
 ***
@@ -220,6 +230,7 @@ Ran north & south models for biological and undisturbnature. regularization (bet
 variables used: c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
 "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbodies_norway2", "Percent_industrial_1km","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
 
+###
 
 ***
 ArcGIS version 10.3.1
