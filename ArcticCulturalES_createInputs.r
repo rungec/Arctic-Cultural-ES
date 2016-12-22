@@ -37,7 +37,7 @@ rasterOptions(tmpdir= my_tmpdir)
 # to process a raster can be increased. Aurora has a lot of RAM (384GB), so we recommend to use the following 
 # settings:
 rasterOptions(maxmemory =1e+09)
-rasterOptions(chunksize=1e+08)
+#rasterOptions(chunksize=1e+08)
 
 ############################
 rastDir <- paste0(wd, "Spatial data/")
@@ -205,13 +205,23 @@ writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GT
 
 ###########################
 #Mask out areas outside study region as NA (norway no water)
-# maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_nowater")
+maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_nowater")
 
-# envStack <- raster::stack(list.files(paste0(rastDir, "Processed/"), "*.tif$", full.names=TRUE))
-# maskedStack <- mask(envStack, maskTemplate)
+envStack <- raster::stack(list.files(paste0(rastDir, "Processed/1_not_masked"), "*.tif$", full.names=TRUE))
+maskedStack <- mask(envStack, maskTemplate)
 
-# setwd(paste0(rastDir, "Processed/masked/"))
-# writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT4S")
+setwd(paste0(rastDir, "Processed/2b_masked_no_water/"))
+writeRaster(maskedStack, filename=paste(names(maskedStack), "no_water", sep="_"), bylayer=TRUE, format = "GTiff", datatype="INT4S")
+
+#Calculate correlation on these masked layers
+corStack <- raster::stack(list.files(paste0(rastDir, "Processed/2b_masked_no_water/"), "*.tif$", full.names=TRUE))
+cors <- layerStats(corStack, 'pearson', na.rm=TRUE)
+saveRDS(cors, file=paste0(dirname(rastDir), "/Maxent runs/Correlation of variables/CorrelationofEnvironmentalVariables_nowater.rds")) #readRDS to open
+#plot correlation matrix
+
+png(filename=paste0(dirname(rastDir), "/Maxent runs/Correlation of variables/CorrelationPlotofEnvironmentalVariables_nowater.png"), width=620, height=480)
+corrplot::corrplot(cors[[1]], method='number', type='lower')
+dev.off()
 
 
 ###########################
