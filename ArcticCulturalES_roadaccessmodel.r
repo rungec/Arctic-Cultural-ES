@@ -110,12 +110,12 @@ RastPredictions <- predict(mod2, list(disttoroad = newpreds))
 RastPredictionsNorm <- round(predict(mod2, list(disttoroad = newpreds))/maxpreds, 2) #normalise #if outside max distance seen in data, then 0, if close to road then 1
 
 #set the values of these rasters to model predictions
-outPath <- paste0(rastDir, "BiasGrid_distancetoroad.tif")
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad.tif")
 biasRast <- disttoroadRast 
 biasRast <- setValues(biasRast, RastPredictions)
 writeRaster(biasRast, filename=outPath, format="GTiff",overwrite=TRUE)
 
-outPath <- paste0(rastDir, "BiasGrid_distancetoroad_normalised.tif") 
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_normalised.tif") 
 biasRastNorm <- disttoroadRast
 biasRastNorm <- setValues(biasRastNorm, RastPredictionsNorm)
 writeRaster(biasRastNorm, filename=outPath, format="GTiff", overwrite=TRUE)
@@ -123,7 +123,7 @@ writeRaster(biasRastNorm, filename=outPath, format="GTiff", overwrite=TRUE)
 ###############################
 #Plot the models and the bias raster
 
-pdf(paste0(wd, "/figures/BiasGridModel_DistancetoRoad.pdf"))
+pdf(paste0(wd, "/Bias_grids/BiasGridModel_DistancetoRoad.pdf"))
 par(mfrow=c(2,2), mar = c(4,4,1,1) + 0.1, mgp=c(2,1,0))
 
 #plot panel 1 raw data
@@ -149,8 +149,7 @@ dev.off()
 
 #run maxent models with default beta value or test aic across different beta values
 #run maxent models with and without bias grid
-#create a mask raster excluding areas that are water ? does this matter as we already have masked out the two study regions? Maybe it matters for the predictions.
-
+#write up model selection - why use maxent as opposed to random forest? (answer - because random forest needs absenses, which we don't have)
 #look at where people value biodiversity
 #compare with expert predictions
 #methods paper

@@ -43,8 +43,8 @@ environments::snap to CORINE2006\Norway.tif
 environments::mask Norway_border_10kmbuffer.shp  
 >Norway_template_raster.tif
 
-#in ArcGIS from CORRINE2012 select CLC12_KODE <> 523 then dissolve
->Norway_nowater.shp
+###in ArcGIS from CORRINE2012 select CLC12_KODE <> 523 then dissolve
+> Norway_nowater.shp
 
 ###Clip CORRINE2006
 *ArcGIS*  
@@ -76,12 +76,27 @@ Calculated percentage of land cover in 3km (2900m) square around central cell
 
 ###Industrial areas
 *ArcGIS*  
-Merged point files Vankraft_vannkraftverk (dams) & Vindkraft_Utbygd_Vindkraftverk (wind farms) and buffered by 5m to convert to polygon  
+Merged point files NVE/Vankraft_vannkraftverk (dams) & Vindkraft_Utbygd_Vindkraftverk (wind farms) and buffered by 5m to convert to polygon  
 Merged line files Vankraft_vannvei (water pipelines) & Kraftnett_Kraftlinje (powerlines) and buffered by 5m to convert to polygon
 Merged the point and line features from above with Corrine2012_minesdumpsconstruction.shp : Corrine 2012 where CLC12_KODE = c(131, 132, 133)  
 > Industrial_disturbance_norway.shp  
-Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif 
+Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif  
+*Note: this only transfers features that overlap the cell centre, so is incorrect. I didn't fix it in this layer, as we decided to exclude vannvei (water pipelines etc) as people don't seem so bothered by them i.e people will happily hike next to pipelines, and fish in dams*
 > Distance_to_industrialdisturbance_norway.tif  
+
+As above, without Vankraft_vannvei (water pipelines etc) 
+> Industrial_disturbance_withoutvannvei_norway.shp
+Dissolved
+> Industrial_disturbance_withoutvannvei_norway_dissolve.shp
+
+*in ArcGIS 30/12/16*
+Converted polygon to raster (10m, extent as per Norway_template_raster.tif)
+> Industrial_withoutvannvei_10m.tif
+
+*In r ArcticCulturalES_createInputs.r* 
+> Percent_industrial_withoutvannvei_500m
+> Percent_industrial_withoutvannvei_1km
+> Percent_industrial_withoutvannvei_3km
 
 ###*27/07/16*
 ###Alpine climate regions within norway
@@ -134,10 +149,30 @@ Converted to raster using Norway_template_raster as template. private land or pr
 Combined Lakes & Rivers from N50 Data
 lakes =Original/N50 Data/Lakes50/Innsjo_Innsjo.shp
 rivers =Original/N50 Data/Rivers50/Elv_Elvenett.shp, objType=='ElvBekkMidtlinje'
-> waterbodies.shp
-
+> waterbodies.shp *note this dataset mistakenly only contains rivers - so don't use this layer, I didn't fix it as after discussion we decided to make another layer and only include major rivers & lakes >2ha, as below*
 Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif 
 > Distance_to_waterbodies.tif
+*Note: this only transfers features that overlap the cell centre, so is incorrect. I didn't fix it in this layer, as we decided to make a new layer including only large rivers & lakes*
+
+*in ArcGIS 10/08/16*
+Combined Lakes & Rivers from N50 Data
+lakes =Original/N50 Data/Lakes50/Innsjo_Innsjo.shp select by attributes > 2ha
+> Lakesbiggerthan2ha.shp
+rivers =Original/N50 Data/Rivers50/Elv_Elvenett.shp, objType=='ElvBekkMidtlinje', buffered to 5m
+> MajorRiver.shp
+Merged
+> Waterbodies_majorriversandlakesbiggerthan2ha.shp
+> Waterbodies_majorriversandlakesbiggerthan2ha_dissolve.shp
+
+*in ArcGIS 30/12/16*
+Polygon to Raster  
+> Waterbodies_majorriversandlakesbiggerthan2ha_10m.tif
+
+*In r ArcticCulturalES_createInputs.r* 
+Raster with 1 if any water in radius, 0 if not
+> Waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif
+#Percent water within 500m
+> Percent_waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif
 
 ###Data that is already rasterized
 *In r ArcticCulturalES_createInputs.r*  
@@ -152,13 +187,16 @@ extend raster to match Norway_template_raster.tif
 
 ###All data
 applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA  
-> .tif rasters in folder "masked"
+> .tif rasters in folder "masked_to_norway"
+
+applied mask based on Norway_nowater.shp, areas outside shp = NA
+> .tif rasters in folder "masked_no_water"
 
 output as asciis for Maxent  
-> .asc rasters in folder "forMaxent"
+> .asc rasters in folder "forMaxent_asc"
 
 clipped extent to norway_alpine.shp  
-> .asc rasters in folder "forMaxent_predictions"
+> .asc rasters in folder "forMaxent_predictions_asc"
 
 ###Reprocessing of Distance_to_Coast_norway raster
 This raster has NA values across much of the study region. This raster was subsetquently remade from N250 Data\Coastline250\coastlinel2.shp 
@@ -170,7 +208,7 @@ Applied mask of Norway_alpine, saved as .asc
 > Distance_to_Coast_norway
 *Note this was not included in the final modelling as its interpretation is based on supposition - it is an indirect metric of the things people percieve, like whether landscape is coastal or mountainous*  
 
-###Bias grids for maxent
+###Bias grids for maxent  
 Created bias grids for maxent using script *ArcticCulturalES_roadaccessmodel.r*
 Modelled the frequency of PPGIS data by proximity to road using a non-linear least-squares model, then predicted that to the distance_to_Road_norway.tif raster. 
 
@@ -230,7 +268,28 @@ Ran north & south models for biological and undisturbnature. regularization (bet
 variables used: c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
 "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbodies_norway2", "Percent_industrial_1km","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
 
-###
+### 23/12/16
+###Correlation of environmental variables
+Checked correlation of rasters that had been masked to land (areas that were not classified as water in Corrine)
+Most variables show low correlation, with the exception of distance to road and distance to house which show pearson correlation coefficient of 0.76. Given road is a variable previously identified as important, we retain it in the models and remove distance to house to allow the response curves to be more easily interpreted. The next highest correlation was the corrine (land cover) dataset which showed correlation of -0.54 with distance to coast, -0.56 with distance to town.
+Saved as .rds which can be loaded to R using readRDS  
+
+> folder: Maxent runs\Correlation of variables\
+> CorrelationPlotofEnvironmentalVariables_nowater.png
+> CorrelationofEnvironmentalVariables_nowater.rds
+
+### 30/12/16
+###Correlation of environmental variables
+Checked correlation
+Most variables show low correlation, with the exception of distance to road and distance to house which show pearson correlation coefficient of 0.76. Given road is a variable previously identified as important, we retain it in the models and remove distance to house to allow the response curves to be more easily interpreted. The next highest correlation was the corrine (land cover) dataset which showed correlation of -0.54 with distance to coast, -0.56 with distance to town.  
+Saved as .rds which can be loaded to R using readRDS  
+> folder: Maxent runs\Correlation of variables\
+> CorrelationPlotofEnvironmentalVariables.png
+> CorrelationofEnvironmentalVariables.rds
+
+
+
+
 
 ***
 ArcGIS version 10.3.1

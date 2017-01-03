@@ -65,25 +65,26 @@ markersNsub <- subset(markersN, species %in% cultESlist)
 markersSsub <- subset(markersS, species %in% cultESlist)
 
 #load environmental data
-rastDir <- paste0(wd, "Spatial data/Processed/forMaxent/")
+rastDir <- paste0(wd, "Spatial data/Processed/3_forMaxent_asc/")
 
-# envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
-# names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 
 
 # #############################
 # #remove unwanted variables
-# varnames <- c("Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
-# "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdevelopment_norway","Governance_plus_protectedareas_norway", "State_commons_norway_binary", "Protected_areas_norway_forbiological")# dput(list.files(rastDir, "*.asc$"))
-# #varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
+varnames <- c("Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Distance_to_waterbody", "Distance_to_industrialdevelopment_norway","Governance_plus_protectedareas_norway", "State_commons_norway_binary", "Protected_areas_norway_forbiological")
+# dput(list.files(rastDir, "*.asc$"))
+#varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") 
+# dput(list.files(rastDir, "*.tif$"))
 
-# envStack <- envStack[[varnames]]
+envStack <- envStack[[varnames]]
 
 
 #############################
 #check correlation of environmental variables
-envStackTIF <- raster::stack(list.files(paste0(wd, "Spatial data/Processed/masked/"), "*.tif$", full.names=TRUE))
-names(envStackTIF) <- sapply(list.files(paste0(wd, "Spatial data/Processed/masked/"), "*.tif$"), function(x) strsplit(x, "\\.")[[1]][1])
+envStackTIF <- raster::stack(list.files(paste0(wd, "Spatial data/Processed/2b_masked_no_water/"), "*.tif$", full.names=TRUE))
+names(envStackTIF) <- sapply(list.files(paste0(wd, "Spatial data/Processed/2b_masked_no_water/"), "*.tif$"), function(x) strsplit(x, "\\.")[[1]][1])
 #envStackTIF <- envStackTIF[[varnames]]
 cors <- layerStats(envStackTIF, 'pearson', na.rm=TRUE)
 saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables4.rds")) #readRDS to open
@@ -116,65 +117,75 @@ dev.off()
 #occ=two column matrix or data.fram of lon and lat in that order
 
 #Sensitivity analysis of features & regularization of North dataset
-cl <- makeCluster(ncore)
-clusterExport(cl=cl, varlist=c("markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
+#cl <- makeCluster(ncore)
+#clusterExport(cl=cl, varlist=c("markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+#NmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
+		#currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
+		x=9 #recreation #x=10 #scenic
+		
 		currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]), c("lon", "lat")]
 		currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
-			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
+			RMvalue=seq(0.5, 2.5, 0.5), #regularization parameters
 			fc=c("H", "L"), #hinge & linear
 			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
 			n.bg=10000,
 			method='randomkfold',
 			kfolds=10,
-			bin.output=TRUE,
-			rasterPreds=TRUE, 
-			overlap=TRUE,
+			bin.output=TRUE, #appends evaluations metrics for each evaluation bin to results table
+			rasterPreds=FALSE, #if TRUE predict each model across input variables
+			#overlap=TRUE, #pairwise metric of niche overlap
 			parallel=FALSE)
 			return(currEval)
 		#save each model
 		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
 			})
-saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
-stopCluster(cl)
+#saveRDS(NmodelEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel.rds"))
+#stopCluster(cl)
+data(currEval)
+currEval@results
+which.min(enmeval_results@results$AICc)
+which.max(enmeval_results@results$Mean.AUC)
 
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
+### Plot prediction with lowest AICc
+pdf(paste0(outDir, "North model/ENM eval/PlotofAICc_forregularizationselection_", as.character(cultESlist[x]), ".pdf"))
+	plot(currEval@predictions[[which (currEval@results$delta.AICc == 0) ]])
+		points(currEval@occ.pts, pch=21, bg=currEval@occ.grp)
+dev.off()
+
+
 #Sensitivity analysis of features & regularization of South dataset
-cl <- makeCluster(ncore)
-clusterExport(cl=cl, varlist=c("markersSsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
-		currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
-			RMvalue=seq(0.5, 4, 0.5), #regularization parameters
-			fc=c("H", "L"), #hinge & linear
-			categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
-			n.bg=10000,
-			method='randomkfold',
-			kfolds=10,
-			bin.output=TRUE,
-			rasterPreds=TRUE, 
-			overlap=TRUE,
-			parallel=FALSE)
-			return(currEval)
-		saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
-			})
-saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
-stopCluster(cl)
+# bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
+# cl <- makeCluster(ncore)
+# clusterExport(cl=cl, varlist=c("markersSsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+# SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
+		# currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
+		# currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
+			# RMvalue=seq(0.5, 4, 0.5), #regularization parameters
+			# fc=c("H", "L"), #hinge & linear
+			# categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
+			# n.bg=10000,
+			# method='randomkfold',
+			# kfolds=10,
+			# bin.output=TRUE,
+			# rasterPreds=TRUE, 
+			# overlap=TRUE,
+			# parallel=FALSE)
+			# return(currEval)
+		# saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
+			# })
+# saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
+# stopCluster(cl)
 
-
-#which.min(enmeval_results@results$AICc)
-#which.max(enmeval_results@results$Mean.AUC)
-
-#test how well the datasets predict each other using the predictions in the eval files	Warren's D similarity statistic		
-NScompare <- lapply(1:length(cultESlist), function(x) {
-				currEvalN <- readRDS(paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
-				currEvalS <- readRDS(paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))	
-				bestN <- which.min(currEvalN@results$AICc) #pick model with lowest AICc
-				bestS <- which.min(currEvalS@results$AICc) #pick model with lowest AICc
-				NmodelRast <- currEvalN@predictions[[bestN]]
-				SmodelRast <- currEvalS@predictions[[bestS]]
-				return(nicheOverlap(NmodelRast, SmodelRast, mask=FALSE, stat='D'))
-			}
+# #test how well the datasets predict each other using the predictions in the eval files	Warren's D similarity statistic		
+# NScompare <- lapply(1:length(cultESlist), function(x) {
+				# currEvalN <- readRDS(paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
+				# currEvalS <- readRDS(paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))	
+				# bestN <- which.min(currEvalN@results$AICc) #pick model with lowest AICc
+				# bestS <- which.min(currEvalS@results$AICc) #pick model with lowest AICc
+				# NmodelRast <- currEvalN@predictions[[bestN]]
+				# SmodelRast <- currEvalS@predictions[[bestS]]
+				# return(nicheOverlap(NmodelRast, SmodelRast, mask=FALSE, stat='D'))
+			# }
 
 ########################
 #Response curves & jackknife of N model
@@ -462,7 +473,7 @@ CombobaseModel <- lapply(6:8, function(x) {
 #Predict models
 alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
 
-rastDir <- paste0(wd, "Spatial data/Processed/forMaxent_prediction/")
+rastDir <- paste0(wd, "Spatial data/Processed/4_forMaxent_prediction/")
 varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
 
 cultESlist <- c("biological", "cabin", "cleanwater", "cultureident", "gathering", "hunt_fish", "income", "pasture", "recreation","scenic", "social", "specialplace", "spiritual", "therapuetic", "undisturbnature")
