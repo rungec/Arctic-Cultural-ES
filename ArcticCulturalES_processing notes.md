@@ -90,13 +90,24 @@ Dissolved
 > Industrial_disturbance_withoutvannvei_norway_dissolve.shp
 
 *in ArcGIS 30/12/16*
-Converted polygon to raster (10m, extent as per Norway_template_raster.tif)
-> Industrial_withoutvannvei_10m.tif
+To create rasters first rasterized each layer individually, then combined.
+Polyline to raster Kraftnett_Kraftlinje.shp, environments set to Norway_template_raster.tif
+> Kraftnett_Kraftlinje.tif
+Point to raster Kraftnett_Transformatorstasj.shp, environments set to Norway_template_raster.tif
+>Kraftnett_Transformatorstasj.tif
+Polygon to raster Corrine2012_minesdumpsconstruction.shp, environments set to Norway_template_raster.tif
+> Corrine2012_minesdumpsconstr.tif
+then...
 
 *In r ArcticCulturalES_createInputs.r* 
-> Percent_industrial_withoutvannvei_500m
-> Percent_industrial_withoutvannvei_1km
-> Percent_industrial_withoutvannvei_3km
+Combined rasters using raster calculation
+> Industrial_disturbance_withoutvannvei_norway.tif
+> Percent_industrial_withoutvannvei_1km_norway.tif
+> Percent_industrial_withoutvannvei_1km_norway_no_water.tif
+Using ArcGIS, tabululate area of Percent_industrial_withoutvannvei_1km_norway_no_water.tif  
+> Area_industry.csv
+80% of land in Norway is further than 500m from industry.
+
 
 ###*27/07/16*
 ###Alpine climate regions within norway
@@ -165,14 +176,27 @@ Merged
 > Waterbodies_majorriversandlakesbiggerthan2ha_dissolve.shp
 
 *in ArcGIS 30/12/16*
-Polygon to Raster  
-> Waterbodies_majorriversandlakesbiggerthan2ha_10m.tif
+Converted to raster
+Polyline to raster MajorRiver.shp
+> MajorRiver.tif
+Polygon to raster Lakesbiggerthan2ha.shp
+> Lakesbiggerthan2ha.tif
+then...
 
 *In r ArcticCulturalES_createInputs.r* 
-Raster with 1 if any water in radius, 0 if not
-> Waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif
+Combined rasters with Norway_template_raster.tif (raster calculation)
+> Waterbodies_majorriversandlakesbiggerthan2ha.tif
+
 #Percent water within 500m
-> Percent_waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif
+> Percent_waterbodies_majorriversandlakesbiggerthan2ha_1km_norway.tif
+#masked out water (sea, fjords)
+> Percent_waterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water.tif
+Raster with 1 if any water in radius, 0 if not
+> AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway.tif
+> AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water.tif
+Using ArcGIS, tabululate area of AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water.tif  
+> Area_ofland_within500mofwater.csv
+43% of land in Norway is within 500m of water.
 
 ###Data that is already rasterized
 *In r ArcticCulturalES_createInputs.r*  

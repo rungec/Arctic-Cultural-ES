@@ -43,6 +43,7 @@ rasterOptions(maxmemory =1e+09)
 rastDir <- paste0(wd, "Spatial data/")
 rastTemplate = raster(paste0(rastDir, "Processed/Templates and boundaries/Norway_template_raster.tif"))
 maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_border_10kmbuffer")
+maskTemplate2 <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_nowater")
 
 ############################
 #Process PPGIS data
@@ -145,18 +146,25 @@ a <- lapply(c(1:length(corrineclass)), function(x) {
 
 #####################		
 ###Industry
-industryRast10m	<- raster(paste0(rastDir, "Processed/shps/industrial/Industrial_withoutvannvei_10m.tif")
+Powerlines <- raster(paste0(rastDir, "Processed/shps/industry/Kraftnett_Kraftlinje.tif"))
+Transformers <- raster(paste0(rastDir, "Processed/shps/industry/Kraftnett_Transformatorstasj.tif"))
+Mining <- raster(paste0(rastDir, "Processed/shps/industry/Corrine2012_minesdumpsconstr.tif"))
+stackedIndustry <- stack(rastTemplate, Powerlines, Transformers, Mining)
+
+#Combine rasters
+IndustryRast <- calc(stackedIndustry, fun=max)
+writeRaster(IndustryRast, filename=paste0(rastDir, "Processed/1_not_masked/Industrial_disturbance_withoutvannvei_norway.tif"), format = "GTiff", datatype="INT4S")
+#mask out water
+IndustryRastMaskednowater <- mask(IndustryRast, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/Industrial_disturbance_withoutvannvei_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
 
 #Create a raster of amount of industry in radius
-industryRast10m	<- raster(paste0(rastDir, "Processed/shps/industrial/Industrial_withoutvannvei_10m.tif")
 	#make moving window matrix
-	currRadius <- 500 #diameter of moving window
+currRadius <- 1000 #diameter of moving window
 		mwm <- make_circ_filter(currRadius/2, 100)
 		dimnames(mwm)<-NULL
-	focRast <- focal(industryRast10m, w=mwm, filename=paste0(rastDir, "Processed/Percent_industrial", "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT4S")
-	industrialRast100m <- resample(focRast, rastTemplate, filename=paste0(rastDir, "Processed/1_not_masked/Percent_industrial", "_",as.character(currRadius/1000), "km.tif"), format = "GTiff", datatype="INT4S")
-	industrialRastMasked <- mask(industrialRast100m, maskTemplate, filename=paste0(rastDir, "Processed/2_masked_to_norway/Percent_industrial", "_",as.character(currRadius/1000), "km_norway.tif"), format = "GTiff", datatype="INT4S")
-	writeRaster(industrialRastMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/Percent_industrial", "_",as.character(currRadius/1000), "km_norway.asc"), format = "ascii")
+	PercIndustrialRast <- focal(IndustryRast, w=mwm, filename=paste0(rastDir, "Processed/2_masked_to_norway/Percent_industrial", "_",as.character(currRadius/1000), "km_norway.tif"), format = "GTiff", datatype="INT4S")
+	PercIndustrialRastMasked <- mask(PercIndustrialRast, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/Percent_industrial", "_",as.character(currRadius/1000), "km_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
+	writeRaster(PercIndustrialRastMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/Percent_industrial", "_",as.character(currRadius/1000), "km_norway_nowater.asc"), format = "ascii")
 
 #################
 #Water
@@ -167,18 +175,22 @@ industryRast10m	<- raster(paste0(rastDir, "Processed/shps/industrial/Industrial_
 #watershp <- readOGR(paste0(rastDir, "Original/Statskog eiendom"), "Statskog eiendom 2014") #hmm this filename doesn't look right...
 
 #Is there any water within 500m of a cell?
-distwater <- raster(paste0(rastDir, "Processed/shp/Waterbodies_majorriversandlakesbiggerthan2ha_10m.tif")) #raster with 10m resolution
+Lakes <- raster(paste0(rastDir, "Processed/shps/water/MajorRiver.tif"))
+Rivers <- raster(paste0(rastDir, "Processed/shps/water/Lakesbiggerthan2ha.tif"))
+stackedWater <- stack(rastTemplate,Lakes,Rivers)
+Waterbodies <- calc(stackedWater, fun=max)
+writeRaster(Waterbodies, filename=paste0(rastDir,"Processed/1_not_masked/Waterbodies_majorriversandlakesbiggerthan2ha.tif"))
 
 #First calculate % water in 500m
 	#make moving window matrix
-	currRadius <- 500 #diameter of moving window
+	currRadius <- 1000 #diameter of moving window
 	mwm <- make_circ_filter(currRadius/2, 100)
-waterin500percent <- focal(distwater, w=mwm, filename=paste0(rastDir, "Processed/1_not_masked/Percent_Waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif"), format = "GTiff", datatype="INT4S")
+waterin500mpercent <- focal(Waterbodies, w=mwm, filename=paste0(rastDir, "Processed/2_masked_to_norway/Percent_Waterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000), "_norway.tif"), format = "GTiff", datatype="INT4S")
 
 #Then reclassify as 1 if any water in 500m, 0 if not
-waterin500m <- reclassify(waterin500m, rcl=matrix(c(0,0,0,0,100,1), byrow=TRUE, ncol=3), filename=paste0(rastDir, "Processed/1_not_masked/Waterbodies_majorriversandlakesbiggerthan2ha_within500m.tif"), format = "GTiff", datatype="INT4S")
-water500mRastMasked <- mask(waterin500m, maskTemplate, filename=paste0(rastDir, "/Processed/2_masked_to_norway/Waterbodies_majorriversandlakesbiggerthan2ha_within500m_norway.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(water500mRastMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/Waterbodies_majorriversandlakesbiggerthan2ha_within500m_norway.asc"), format = "ascii")
+waterin500m <- reclassify(waterin500mpercent, rcl=matrix(c(0,0,0,0,100,1), byrow=TRUE, ncol=3), filename=paste0(rastDir, "Processed/2_masked_to_norway/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway.tif"), format = "GTiff", datatype="INT4S")
+waterMasked <- mask(waterin500m, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
+writeRaster(waterMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/Waterbodies_majorriversandlakesbiggerthan2ha_within500m_norway_no_water.asc"), format = "ascii")
 
 
 ##############################
