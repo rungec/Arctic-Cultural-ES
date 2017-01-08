@@ -120,10 +120,21 @@ biasRastNorm <- disttoroadRast
 biasRastNorm <- setValues(biasRastNorm, RastPredictionsNorm)
 writeRaster(biasRastNorm, filename=outPath, format="GTiff", overwrite=TRUE)
 
+#Mask out areas outside study region as NA (norway no water)
+maskTemplate <- readOGR(paste0(rastDir, "/Templates and boundaries"), "Norway_nowater")
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_no_water.tif")
+biasRastMaskednowater <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_normalised_no_water.tif")
+biasRastNormMaskednowater <- mask(biasRastNorm, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
+
+#Save as .asc
+writeRaster(biasRastMaskednowater, filename=paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_no_water.asc"), format="ascii")
+
+
 ###############################
 #Plot the models and the bias raster
 
-pdf(paste0(wd, "/Bias_grids/BiasGridModel_DistancetoRoad.pdf"))
+pdf(paste0(rastDir, "/Bias_grids/BiasGridModel_DistancetoRoad.pdf"))
 par(mfrow=c(2,2), mar = c(4,4,1,1) + 0.1, mgp=c(2,1,0))
 
 #plot panel 1 raw data
@@ -141,7 +152,7 @@ lines(countdfsub$disttoroad, predict(mod3, list(disttoroad = countdfsub$disttoro
 text(x=1500, y=2500, labels=expression(y == e^{8.1-0.006*x}))
 
 #plot panel 4 normalised raster
-plot(biasRastNorm)
+plot(biasRastNormMaskednowater)
 title("Bias grid for Maxent")
 
 dev.off()
