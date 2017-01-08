@@ -18,6 +18,7 @@ library(rgeos) #for buffer & gIntersection
 library(dplyr) #for %>%
 
 wd <- "C:/Claire/Arctic_Cultural_ES/"
+#wd <- "/home/runge/Data/Arctic_Cultural_ES/"
 setwd(wd)
 
 
@@ -190,7 +191,7 @@ waterin500mpercent <- focal(Waterbodies, w=mwm, filename=paste0(rastDir, "Proces
 #Then reclassify as 1 if any water in 500m, 0 if not
 waterin500m <- reclassify(waterin500mpercent, rcl=matrix(c(0,0,0,0,100,1), byrow=TRUE, ncol=3), filename=paste0(rastDir, "Processed/2_masked_to_norway/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway.tif"), format = "GTiff", datatype="INT4S")
 waterMasked <- mask(waterin500m, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(waterMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/Waterbodies_majorriversandlakesbiggerthan2ha_within500m_norway_no_water.asc"), format = "ascii")
+writeRaster(waterMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/AnyWaterbodies_majorriversandlakesbiggerthan2ha_within500m_norway_no_water.asc"), format = "ascii")
 
 
 ##############################
@@ -289,15 +290,14 @@ writeRaster(southrast, filename=paste0(rastDir,"Processed/forMaxent/South_munici
 
 ###########################
 #Clip rasters
-setwd(paste0(rastDir, "Processed/4_forMaxent_prediction/"))
-maxentRastList <- list.files(paste0(rastDir, "Processed/forMaxent"), ".asc$", full.names=TRUE)
+setwd(paste0(rastDir, "Processed/4_forMaxent_prediction_asc/"))
+maxentRastList <- list.files(paste0(rastDir, "Processed/3_forMaxent_asc"), ".asc$", full.names=TRUE)
 
 b <- lapply(1:length(maxentRastList), function(x) {
 		currRast <- raster(maxentRastList[x])
-		newRast2 <- raster::crop(currRast, extent(alpineshp), filename=basename(maxentRastList[x]), format="ascii")
+		newRast2 <- raster::crop(currRast, extent(alpineshp), filename=basename(maxentRastList[x]), format="ascii", overwrite=TRUE)
 		return()
 		})
-
 
 		
 ###########################	
