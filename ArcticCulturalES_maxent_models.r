@@ -24,6 +24,8 @@ wd <- "C:/Claire/Arctic_Cultural_ES/"
 setwd(wd)
 outDir <- paste0(wd, "Maxent runs/")
 
+currDate <- paste(strsplit(as.character(Sys.Date()), "-")[[1]], collapse="") #formatting the date for folder naming
+
 ########################
 ## Setting system preferences for better work with raster
 # Define your temp folder
@@ -50,8 +52,8 @@ rasterOptions(chunksize=1e+08)
 #load ces observations (PPGIS data)
 markersN <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_north_UTM33N_alpine.csv"), header=TRUE)
 markersS <- read.csv(paste0(wd, "PPGIS data/Processed/", "PPGIS_Markers_south_UTM33N_municipal.csv"), header=TRUE)
-#markersNshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_north_UTM33N_municipal_alpine")
-#markersSshp <- readOGR(paste0(wd, "PPGIS data/Original/shps"), "PPGIS_Markers_south_UTM33N_municipal")
+markersNshp <- readOGR(paste0(wd, "PPGIS data/Processed/shps"), "PPGIS_Markers_north_UTM33N_alpine")
+markersSshp <- readOGR(paste0(wd, "PPGIS data/Processed/shps"), "PPGIS_Markers_south_UTM33N_municipal")
 
 
 #CES we are interested in
@@ -70,6 +72,8 @@ rastDir <- paste0(wd, "Spatial data/Processed/3_forMaxent_asc/")
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 
+#load bias grid
+biasGrid <- raster(paste0(basename(rastDir), "/Bias_grids/BiasGrid_distancetoroad_nowater.asc"))
 
 # #############################
 # #remove unwanted variables
@@ -82,36 +86,72 @@ envStack <- envStack[[varnames]]
 
 
 #############################
+###CHECK CORRELATION OF VARIABLES
+#############################
+
 #check correlation of environmental variables
 envStackTIF <- raster::stack(list.files(paste0(wd, "Spatial data/Processed/2b_masked_no_water/"), "*.tif$", full.names=TRUE))
 names(envStackTIF) <- sapply(list.files(paste0(wd, "Spatial data/Processed/2b_masked_no_water/"), "*.tif$"), function(x) strsplit(x, "\\.")[[1]][1])
 #envStackTIF <- envStackTIF[[varnames]]
 cors <- layerStats(envStackTIF, 'pearson', na.rm=TRUE)
-saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables4.rds")) #readRDS to open
-#plot correlation matrix
+saveRDS(cors, file=paste0(outDir, "/Correlation of variables/CorrelationofEnvironmentalVariables_nowater2.rds")) #readRDS to open
 
-png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables4.png"), width=620, height=480)
+#plot correlation matrix
+png(filename=paste0(outDir, "/Correlation of variables/CorrelationPlotofEnvironmentalVariables_nowater2.png"), width=1240, height=960)
 corrplot::corrplot(cors[[1]], method='number', type='lower')
 dev.off()
 
 #############################
-#set up background points
-alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
-bg <- randomPoints(alpineMask, n=10000)
-write.csv(bg, paste0(outDir, "backgroundpoints.csv"), row.names=FALSE)
-
-#plot the background points
-bgshp <- SpatialPoints(bg, proj4string=crs(markersNshp))
-alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
-png(paste0(outDir, "Map_of_backgroundpoints.png"), width=480, height=620)
-	plot(alpineshp, border="grey70")
-	plot(markersSshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
-	plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
-	plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
-dev.off()
-	
+###BACKGROUND
 #############################
-#MAXENT RUNS
+
+#set up background points for the combined NS models
+	alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
+	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100)
+	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"), row.names=FALSE)
+
+	#plot the background points
+		bgshp <- SpatialPoints(bg, proj4string=crs(markersNshp))
+		png(paste0(dirname(rastDir), "/Background_points/Map_of_backgroundpoints_wholeregion.png"), width=480, height=620)
+			plot(alpineshp, border="grey70")
+			plot(markersSshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+			plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+			plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+		dev.off()
+
+#set up background points for North models
+	Nmask <- raster(paste0(dirname(rastDir), "/Templates and boundaries/North_municipalities_alpine.tif"))	
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "North_municipalities_alpine")
+	bgN <- randomPoints(Nmask, n=10000, ext=extent(alpineshp), tryf=100)
+	write.csv(bgN, paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"), row.names=FALSE)
+	
+	#plot the background points
+	bgshp <- SpatialPoints(bgN, proj4string=crs(markersNshp))
+	png(paste0(dirname(rastDir), "/Background_points/Map_of_backgroundpoints_north.png"), width=480, height=620)
+		plot(alpineshp, border="grey70")
+		plot(markersSshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+		plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+		plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+	dev.off()
+
+#set up background points for South models
+	Smask <- raster(paste0(dirname(rastDir), "/Templates and boundaries/South_municipalities.tif"))
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "South_municipalities")
+	bgS <- randomPoints(Smask, n=10000, ext=extent(alpineshp), tryf=100)
+	write.csv(bgS, paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"), row.names=FALSE)	
+	
+	#plot the background points
+	bgshp <- SpatialPoints(bgS, proj4string=crs(markersNshp))
+	png(paste0(dirname(rastDir), "/Background_points/Map_of_backgroundpoints_south.png"), width=480, height=620)
+		plot(alpineshp, border="grey70")
+		plot(markersSshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+		plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+		plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
+	dev.off()
+
+#############################
+#CHOOSE REGULARIZATION MULTIPLIER
 #############################
 #Conduct sensitivity analysis to evaluate optimal set of regularization multipliers and evaluate model fit #hinge and linear features only
 #occ=two column matrix or data.fram of lon and lat in that order
@@ -153,59 +193,11 @@ pdf(paste0(outDir, "North model/ENM eval/PlotofAICc_forregularizationselection_"
 dev.off()
 
 
-#Sensitivity analysis of features & regularization of South dataset
-# bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))
-# cl <- makeCluster(ncore)
-# clusterExport(cl=cl, varlist=c("markersSsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-# SmodelEval <- parLapply(cl, 1:length(cultESlist), function(x) {
-		# currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]), c("lon", "lat")]
-		# currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=envStack, 
-			# RMvalue=seq(0.5, 4, 0.5), #regularization parameters
-			# fc=c("H", "L"), #hinge & linear
-			# categoricals=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), 
-			# n.bg=10000,
-			# method='randomkfold',
-			# kfolds=10,
-			# bin.output=TRUE,
-			# rasterPreds=TRUE, 
-			# overlap=TRUE,
-			# parallel=FALSE)
-			# return(currEval)
-		# saveRDS(currEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))
-			# })
-# saveRDS(SmodelEval, file=paste0(outDir, "South model/ENM eval/ENMevalofSmodel.rds"))
-# stopCluster(cl)
-
-# #test how well the datasets predict each other using the predictions in the eval files	Warren's D similarity statistic		
-# NScompare <- lapply(1:length(cultESlist), function(x) {
-				# currEvalN <- readRDS(paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
-				# currEvalS <- readRDS(paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))	
-				# bestN <- which.min(currEvalN@results$AICc) #pick model with lowest AICc
-				# bestS <- which.min(currEvalS@results$AICc) #pick model with lowest AICc
-				# NmodelRast <- currEvalN@predictions[[bestN]]
-				# SmodelRast <- currEvalS@predictions[[bestS]]
-				# return(nicheOverlap(NmodelRast, SmodelRast, mask=FALSE, stat='D'))
-			# }
-
 ########################
-#Response curves & jackknife of N model
-# to do:
-# fill in regularisation parameters 'beta_hinge=2'
-
-#set up cluster
-# cl <- makeCluster(ncore)
-# clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-
-#run maxent model across all cultES
-#Nmodel <- parLapply(cl, 1:length(cultESlist), function(x) {
-
-#set up background points
-#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Nmask <- raster(paste0(dirname(rastDir), "/Templates and boundaries/North_municipalities_alpine.tif"))
-bg <- randomPoints(Nmask, n=10000)
-write.csv(bg, paste0(outDir,"North model/Response curves and jacknife3/backgroundpoints_north.csv"), row.names=FALSE)
-
-#North model
+###MAXENT RUNS NORTH MODEL
+########################
+#TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of N model
 #set up variables
 varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
 "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","Governance_plus_protectedareas_norway")
@@ -213,18 +205,18 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]]
 
-bg <- read.csv(paste0(outDir,"North model/Response curves and jacknife3/backgroundpoints_north.csv"))
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
 
 #run model
 
 Nmodel <- lapply(2:(length(cultESlist)-1), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "North model/Response curves and jacknife5/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Water_within_500m_norway", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Water_within_500m_norway", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=-1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -244,12 +236,12 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]]
 
-bg <- read.csv(paste0(outDir,"North model/Response curves and jacknife3/backgroundpoints_north.csv"))
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
 
 Nmodel <- lapply(1:length(cultESlist), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "North model/Response curves and jacknife5/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
@@ -260,34 +252,47 @@ Nmodel <- lapply(1:length(cultESlist), function(x) {
 			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 			return(currMod)
 			})
-		
+
+###RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we then use for prediction
+#Base run of N model
+#run maxent model across all cultES
+
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
+
+Nbasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Base_run_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+			
 #stopCluster(cl)
 
 #'beta_hinge=2'
 
 ########################
-#Response curves & jackknife of S model
-# to do:
-# fill in regularisation parameters 'beta_hinge=2'
+###MAXENT RUNS NORTH MODEL WITH BIAS GRID
+########################
+###TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of N model with bias grid
+biasfile=
+#RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
 
-#set up cluster
-#cl <- makeCluster(ncore)
-#clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-
-#run maxent model for all cultES
-#Smodel <- parLapply(cl, 1:length(cultESlist), function(x) {
-
-#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-#Smodel <- lapply(6:length(cultESlist), function(x) {
-	
-
-#set up background points
-#bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Smask <- raster(paste0(dirname(rastDir), "/Templates and boundaries/South_municipalities.tif"))
-bg <- randomPoints(Smask, n=10000)
-write.csv(bg, paste0(outDir,"South model/Response curves and jacknife3/backgroundpoints_south.csv"), row.names=FALSE)
-
-#South model
+########################
+###MAXENT RUNS SOUTH MODEL
+########################
+###TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of S model
 #set up variables
 varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
 "Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","Governance_plus_protectedareas_norway")
@@ -295,13 +300,13 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]]
 
-bg <- read.csv(paste0(outDir, "South model/Response curves and jacknife3/backgroundpoints_south.csv"))
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
 
 #run model
 Smodel <- lapply(2:(length(cultESlist)-1), function(x) {
 	
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Response curves and jacknife5/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
@@ -329,7 +334,7 @@ bg <- read.csv(paste0(outDir,  "South model/Response curves and jacknife3/backgr
 
 Smodel <- lapply(1:length(cultESlist), function(x) {	
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Response curves and jacknife5/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
@@ -343,8 +348,52 @@ Smodel <- lapply(1:length(cultESlist), function(x) {
 			
 #stopCluster(cl)
 
+###RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
 ########################
-#Response curves & jackknife of model created with both north and south data 
+#Base run of S model
+
+#set up cluster
+#cl <- makeCluster(ncore)
+#clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
+
+#run maxent model for all cultES
+#Sbasemodel <- parLapply(cl, 1:length(cultESlist), function(x) {
+
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
+Sbasemodel <- lapply(6:length(cultESlist), function(x) {
+			
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base_run_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return()
+			})
+			
+#stopCluster(cl)
+
+
+
+########################
+###MAXENT RUNS SOUTH MODEL WITH BIAS GRID
+########################
+###TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of S model with bias grid
+
+###RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+
+########################
+###MAXENT RUNS NORTHSOUTH COMBINED MODEL
+########################
+###TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of model created with both north and south data 
 # to do:
 # fill in regularisation parameters 'beta_hinge=2'
 markersCombined <- rbind(markersNsub, markersSsub)
@@ -356,12 +405,12 @@ markersCombined <- rbind(markersNsub, markersSsub)
 # #run maxent model for all cultES
 # ComboModel <- parLapply(l, 1:length(cultESlist), function(x) {
 
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
 ComboModel <- lapply(1:length(cultESlist), function(x) {
 ComboModel <- lapply(6:8, function(x) {
 			
 			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
@@ -376,67 +425,8 @@ ComboModel <- lapply(6:8, function(x) {
 				
 #stopCluster(cl)
 
-########################
-#Assuming these models all look ok, we now create a model with all the data
-########################
-#Base run of N model
-
-#set up cluster
-# cl <- makeCluster(ncore)
-# clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-
-#run maxent model across all cultES
-#Nbasemodel <- parLapply(cl, 1:length(cultESlist), function(x) {
-
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Nbasemodel <- lapply(6:length(cultESlist), function(x) {
-			
-			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "North model/Base run/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
-			
-			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
-			
-			#save model
-			#names(currMod) <- cultESlist[x]
-			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
-			return(currMod)
-			})
-			
-#stopCluster(cl)
-
-#'beta_hinge=2'
-
-########################
-#Base run of S model
-
-#set up cluster
-#cl <- makeCluster(ncore)
-#clusterExport(cl=cl, varlist=c("markersNsub", "markersNsub", "bg", "envStack", "rastDir", "outDir", "cultESlist"))
-
-#run maxent model for all cultES
-#Sbasemodel <- parLapply(cl, 1:length(cultESlist), function(x) {
-
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
-Sbasemodel <- lapply(6:length(cultESlist), function(x) {
-			
-			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Base run/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
-			
-			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
-			
-			#save model
-			#names(currMod) <- cultESlist[x]
-			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
-			return()
-			})
-			
-#stopCluster(cl)
-
-########################
+###RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
 #Base run of model created with both north and south data 
 
 markersCombined <- rbind(markersNsub, markersSsub)
@@ -448,12 +438,12 @@ markersCombined <- rbind(markersNsub, markersSsub)
 # #run maxent model for all cultES
 # CombobaseModel <- parLapply(l, 1:length(cultESlist), function(x) {
 
-bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
+bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
 CombobaseModel <- lapply(1:length(cultESlist), function(x) {
 CombobaseModel <- lapply(6:8, function(x) {
 			
 			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "Combined model/Base run/", as.character(cultESlist[x]))
+			currOutPath <- paste0(outDir, "Combined model/Base_run_", currDate, "/", as.character(cultESlist[x]))
 			dir.create(currOutPath)
 			
 			#run the model
@@ -469,7 +459,20 @@ CombobaseModel <- lapply(6:8, function(x) {
 #stopCluster(cl)
 
 
-######################
+########################
+###MAXENT RUNS NORTHSOUTH COMBINED MODEL WITH BIAS GRID
+########################
+###TEST MODEL
+#Response curves, jackknife & 10-fold cross-validation of model created with both north and south data and bias grid
+
+#RUN BASE MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+#Base run of model created with both north and south data and bias grid
+
+
+########################
+###PREDICT MODELS ONTO ENVIRONMENTAL VARIABLES
+########################
 #Predict models
 alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
 
@@ -482,7 +485,7 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]] #remove unwanted variables
 
-#using a for loop because of memory allocataion issues
+#using a for loop because of memory allocation issues
 for (y in c("Combined model", "North model", "South model"){
 	for (x in seq_along(cultESlist)){
 	
@@ -501,6 +504,14 @@ for (y in c("Combined model", "North model", "South model"){
 		}
 }
 
+
+
+
+
+
+
+######################
+###COMPARE MODELS
 ######################
 #test N model against S data
 bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
@@ -581,22 +592,21 @@ SmodelNdata <- lapply(1:length(cultESlist), function(x) {
 		evaluate(Smodel[x], p=markersNsub[markersNsub$species==currCultES,], x=envStack) 
 		})
 
-a <- lapply(list.files(rastDir, "*.tif$", full.names=TRUE), function(x) raster(x))
-need
-template raster (mask raster)
-Categorical		corrine data as .tif clipped to mask
-Continuous		distance to houses as raster or housing density
-Continuous		distance to roads as raster
-??				accessibility - how is this different to distance to roads
-Categorical 	land ownership /protected areas 
 
 
-#use 10000 background points
-#use multiple backgrounds?
 
 #fit using S, test using N and vice versa
 #http://www.inside-r.org/packages/cran/dismo/docs/maxent
-
+# #test how well the datasets predict each other using the predictions in the eval files	Warren's D similarity statistic		
+# NScompare <- lapply(1:length(cultESlist), function(x) {
+				# currEvalN <- readRDS(paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
+				# currEvalS <- readRDS(paste0(outDir, "South model/ENM eval/ENMevalofSmodel_", as.character(cultESlist[x]), ".rds"))	
+				# bestN <- which.min(currEvalN@results$AICc) #pick model with lowest AICc
+				# bestS <- which.min(currEvalS@results$AICc) #pick model with lowest AICc
+				# NmodelRast <- currEvalN@predictions[[bestN]]
+				# SmodelRast <- currEvalS@predictions[[bestS]]
+				# return(nicheOverlap(NmodelRast, SmodelRast, mask=FALSE, stat='D'))
+			# }
 		
 ###########################	
 #remove temp raster folder	

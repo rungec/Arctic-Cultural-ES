@@ -236,10 +236,22 @@ Applied mask of Norway_alpine, saved as .asc
 Created bias grids for maxent using script *ArcticCulturalES_roadaccessmodel.r*
 Modelled the frequency of PPGIS data by proximity to road using a non-linear least-squares model, then predicted that to the distance_to_Road_norway.tif raster. 
 
-value is predicted frequency of ppgis data  
+value is predicted frequency of ppgis data  (0-3000)
+> BiasGrid_distancetoroad.tif  
+> BiasGrid_distancetoroad_no_water.tif  #masked out sea & fjords
+> BiasGrid_distancetoroad_no_water.asc  #used in Maxent
+value is normalised predicted frequency between 0 & 1: 1=more sampled
 > BiasGrid_distancetoroad_normalised.tif  
-value is normalised predicted frequency between 0 & 1  
-> BiasGrid_distancetoroad_normalised.tif  
+> BiasGrid_distancetoroad_normalised_no_water.tif  #masked out sea & fjords
+
+
+###Background points
+for NS combined models: 10000 points drawn from whole of study region as defined by Norway_alpine.shp
+> backgroundpoints_wholeregion.csv
+for N only models: 10000 points drawn from region defined by North_municipalities_alpine.shp
+> backgroundpoints_north.csv
+for S only models: 10000 points drawn from region defined by South_municipalities.shp
+> backgroundpoints_south.csv
 
 ###
 ***
@@ -295,21 +307,21 @@ variables used: c("North_municipalities_alpine", "Corrine2012_norway_broadleaffo
 ### 23/12/16
 ###Correlation of environmental variables
 Checked correlation of rasters that had been masked to land (areas that were not classified as water in Corrine)
-Most variables show low correlation, with the exception of distance to road and distance to house which show pearson correlation coefficient of 0.76. Given road is a variable previously identified as important, we retain it in the models and remove distance to house to allow the response curves to be more easily interpreted. The next highest correlation was the corrine (land cover) dataset which showed correlation of -0.54 with distance to coast, -0.56 with distance to town.
+
 Saved as .rds which can be loaded to R using readRDS  
 
 > folder: Maxent runs\Correlation of variables\
 > CorrelationPlotofEnvironmentalVariables_nowater.png
 > CorrelationofEnvironmentalVariables_nowater.rds
 
-### 30/12/16
+### 07/01/17
 ###Correlation of environmental variables
-Checked correlation
-Most variables show low correlation, with the exception of distance to road and distance to house which show pearson correlation coefficient of 0.76. Given road is a variable previously identified as important, we retain it in the models and remove distance to house to allow the response curves to be more easily interpreted. The next highest correlation was the corrine (land cover) dataset which showed correlation of -0.54 with distance to coast, -0.56 with distance to town.  
+Checked correlation of new waterbodies & industrial rasters
+ 
 Saved as .rds which can be loaded to R using readRDS  
 > folder: Maxent runs\Correlation of variables\
-> CorrelationPlotofEnvironmentalVariables.png
-> CorrelationofEnvironmentalVariables.rds
+> CorrelationPlotofEnvironmentalVariables_nowater2.png
+> CorrelationofEnvironmentalVariables_nowater2.rds
 
 
 
