@@ -186,12 +186,12 @@ writeRaster(Waterbodies, filename=paste0(rastDir,"Processed/1_not_masked/Waterbo
 	#make moving window matrix
 	currRadius <- 1000 #diameter of moving window
 	mwm <- make_circ_filter(currRadius/2, 100)
-waterin500mpercent <- focal(Waterbodies, w=mwm, filename=paste0(rastDir, "Processed/2_masked_to_norway/Percent_Waterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000), "_norway.tif"), format = "GTiff", datatype="INT4S")
+waterin500mpercent <- focal(Waterbodies, w=mwm, filename=paste0(rastDir, "Processed/2_masked_to_norway/Percent_Waterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000), "km_norway.tif"), format = "GTiff", datatype="INT4S")
 
 #Then reclassify as 1 if any water in 500m, 0 if not
-waterin500m <- reclassify(waterin500mpercent, rcl=matrix(c(0,0,0,0,100,1), byrow=TRUE, ncol=3), filename=paste0(rastDir, "Processed/2_masked_to_norway/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway.tif"), format = "GTiff", datatype="INT4S")
-waterMasked <- mask(waterin500m, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(waterMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/AnyWaterbodies_majorriversandlakesbiggerthan2ha_within500m_norway_no_water.asc"), format = "ascii")
+waterin500m <- reclassify(waterin500mpercent, rcl=matrix(c(0,0,0,0,100,1), byrow=TRUE, ncol=3), filename=paste0(rastDir, "Processed/2_masked_to_norway/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"km_norway.tif"), format = "GTiff", datatype="INT4S")
+waterMasked <- mask(waterin500m, maskTemplate2, filename=paste0(rastDir, "Processed/2b_masked_no_water/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000),"km_norway_no_water.tif"), format = "GTiff", datatype="INT4S")
+writeRaster(waterMasked, filename=paste0(rastDir, "Processed/3_forMaxent_asc/AnyWaterbodies_majorriversandlakesbiggerthan2ha_", as.character(currRadius/1000), "km_norway_no_water.asc"), format = "ascii")
 
 
 ##############################

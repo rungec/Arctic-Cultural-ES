@@ -307,7 +307,6 @@ variables used: c("North_municipalities_alpine", "Corrine2012_norway_broadleaffo
 ### 23/12/16
 ###Correlation of environmental variables
 Checked correlation of rasters that had been masked to land (areas that were not classified as water in Corrine)
-
 Saved as .rds which can be loaded to R using readRDS  
 
 > folder: Maxent runs\Correlation of variables\
@@ -317,7 +316,8 @@ Saved as .rds which can be loaded to R using readRDS
 ### 07/01/17
 ###Correlation of environmental variables
 Checked correlation of new waterbodies & industrial rasters
- 
+ Most variables show pearson correlation of <0.4. Exceptions are Distance to road and distance to house which show pearson correlation of 0.73; Distance to Town2 shows correlation of 0.54 with distance to house and 0.47 with distance to road;
+ Percent industrial 1km shows correlation of 0.46 with Corrine_2012 cropland; conifer forest shows negative correlation of -0.43 with sparse vegetated.  
 Saved as .rds which can be loaded to R using readRDS  
 > folder: Maxent runs\Correlation of variables\
 > CorrelationPlotofEnvironmentalVariables_nowater2.png
