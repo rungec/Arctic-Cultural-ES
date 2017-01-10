@@ -171,7 +171,8 @@ dev.off()
 #run evaluation
 	currEval <- ENMeval::ENMevaluate(occ=currOcc, bg.coords=bg, env=currEnvStack, 
 			RMvalue=seq(0.5, 2.5, 0.5), #regularization parameters
-			fc=c("H", "L"), #hinge & linear
+			#fc=c("H", "L"), #hinge & linear
+			fc=c("H"), #hinge only
 			categoricals=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Governance_plus_protectedareas_norway"), 
 			n.bg=10000,
 			method='randomkfold',
@@ -182,7 +183,7 @@ dev.off()
 			parallel=TRUE)
 			
 		#save evaluation
-		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodelwithPrediction_", as.character(cultESlist[x]), ".rds"))
+		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodelwithPrediction", as.character(cultESlist[x]), ".rds"))
 			
 #look at it
 	data(currEval)
