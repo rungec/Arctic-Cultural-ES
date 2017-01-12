@@ -19,8 +19,8 @@ library(rgdal) #to read shapefiles
 library(corrplot) #to plot correlation matrix
 #library(parallel)
 
-wd <- "C:/Claire/Arctic_Cultural_ES/"
-#wd <- "/home/runge/Data/Arctic_Cultural_ES/"
+#wd <- "C:/Claire/Arctic_Cultural_ES/"
+wd <- "/home/runge/Data/Arctic_Cultural_ES/"
 setwd(wd)
 
 rastDir <- paste0(wd, "Spatial data/Processed/3_forMaxent_asc/")
@@ -73,7 +73,7 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 
 #load bias grid
-biasGrid <- raster(paste0(basename(rastDir), "/Bias_grids/BiasGrid_distancetoroad_nowater.asc"))
+#biasGrid <- raster(paste0(basename(rastDir), "/Bias_grids/BiasGrid_distancetoroad_nowater.asc"))
 
 # #############################
 # #remove unwanted variables
@@ -176,7 +176,7 @@ dev.off()
 			categoricals=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Governance_plus_protectedareas_norway"), 
 			n.bg=10000,
 			method='randomkfold',
-			kfolds=10,
+			kfolds=1,
 			bin.output=TRUE, #appends evaluations metrics for each evaluation bin to results table
 			rasterPreds=TRUE, #if TRUE predict each model across input variables (for AICc)
 			#overlap=TRUE, #pairwise metric of niche overlap
@@ -196,6 +196,7 @@ dev.off()
 		plot(currEval@predictions[[which (currEval@results$delta.AICc == 0) ]])
 		points(currEval@occ.pts, pch=21, bg=currEval@occ.grp)
 	dev.off()
+	
 ### Plot model AUC
 #Mean.AUC.DIFF gives difference between test & training AUCs averaged across 10 reps - expected to be high for models overfit to the training data
 #full.AUC is AUC of full model (all data, no bins) - evaluation of degree to which a model can successfully discriminate occurrence from background localities
