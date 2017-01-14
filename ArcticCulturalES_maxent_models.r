@@ -19,8 +19,8 @@ library(rgdal) #to read shapefiles
 library(corrplot) #to plot correlation matrix
 #library(parallel)
 
-#wd <- "C:/Claire/Arctic_Cultural_ES/"
-wd <- "/home/runge/Data/Arctic_Cultural_ES/"
+wd <- "C:/Claire/Arctic_Cultural_ES/"
+#wd <- "/home/runge/Data/Arctic_Cultural_ES/"
 setwd(wd)
 
 rastDir <- paste0(wd, "Spatial data/Processed/3_forMaxent_asc/")
@@ -73,14 +73,14 @@ envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 
 #load bias grid
-#biasGrid <- raster(paste0(basename(rastDir), "/Bias_grids/BiasGrid_distancetoroad_nowater.asc"))
+biasGrid <- raster(paste0(basename(rastDir), "/Bias_grids/BiasGrid_distancetoroad_nowater.asc"))
 
 # #############################
 # #remove unwanted variables
 #included 
 #exclude distance to road from model with bias grid
 #replace "Governance_plus_protectedareas_norway" with "State_commons_norway_binary" & "Protected_areas_norway_forbiological" for biological & undisturbnature
-varnames <- c("Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+varnames <- c("Norway_alpine", "North_municipalities_alpine", "South_municipalities, AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway","Distance_to_Road_norway", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological")
 envStack <- envStack[[varnames]]
 length(varnames)
 
@@ -176,14 +176,15 @@ dev.off()
 			categoricals=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Governance_plus_protectedareas_norway"), 
 			n.bg=10000,
 			method='randomkfold',
-			kfolds=1,
+			kfolds=10,
 			bin.output=TRUE, #appends evaluations metrics for each evaluation bin to results table
-			rasterPreds=TRUE, #if TRUE predict each model across input variables (for AICc)
+			rasterPreds=FALSE, #if TRUE predict each model across input variables (for AICc)
 			#overlap=TRUE, #pairwise metric of niche overlap
-			parallel=TRUE)
+			parallel=TRUE, numCores=6)
 			
 		#save evaluation
-		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodelwithPrediction", as.character(cultESlist[x]), ".rds"))
+		saveRDS(currEval, file=paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".rds"))
+		write.csv(currEval@results, paste0(outDir, "North model/ENM eval/ENMevalofNmodel_", as.character(cultESlist[x]), ".csv"), row.names=FALSE)
 			
 #look at it
 	data(currEval)
@@ -216,11 +217,12 @@ dev.off()
 #TEST MODEL
 #Response curves, jackknife & 10-fold cross-validation of N model
 #set up variables
-	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
-	"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","Governance_plus_protectedareas_norway")
+
+	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway")
 	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
 	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
 
 #run model
@@ -228,10 +230,29 @@ Nmodel <- lapply(2:(length(cultESlist)-1), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "North model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Water_within_500m_norway", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=-1'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+			
+###RUN BASE MODEL of N model
+#Assuming these models all look ok, we now create a model with all the data which we then use for prediction
+
+#run maxent model across all cultES
+Nbasemodel <- lapply(2:(length(cultESlist)-1), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Base_run_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -239,13 +260,14 @@ Nmodel <- lapply(2:(length(cultESlist)-1), function(x) {
 			return(currMod)
 			})
 
+###RUN N MODELS biological & undisturbnature values
 #set up variables for biological & undisturbnature values
 	cultESlist <- c("biological", "undisturbnature")
-	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
-	"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
 	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
 	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
 
 #run model for biological & undisturbnature values
@@ -253,10 +275,10 @@ Nmodel <- lapply(1:length(cultESlist), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "North model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "Water_within_500m_norway","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -264,7 +286,7 @@ Nmodel <- lapply(1:length(cultESlist), function(x) {
 			return(currMod)
 			})
 
-###RUN BASE MODEL of N model
+###RUN BASE MODEL of N model for biological & undisturbnature
 #Assuming these models all look ok, we now create a model with all the data which we then use for prediction
 
 #run maxent model across all cultES
@@ -272,10 +294,10 @@ Nbasemodel <- lapply(1:length(cultESlist), function(x) {
 			
 			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "North model/Base_run_", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -287,58 +309,118 @@ Nbasemodel <- lapply(1:length(cultESlist), function(x) {
 ########################
 ###MAXENT RUNS NORTH MODEL WITH BIAS GRID
 ########################
-###TEST MODEL
+
+###SET UP N DATA WITH BIAS GRID
+#set up variables
+	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway",  "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
+
+#TEST N MODEL WITH BIAS GRID
 #Response curves, jackknife & 10-fold cross-validation of N model with bias grid
-biasfile=
-#RUN BASE MODEL
-#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Nmodel <- lapply(2:(length(cultESlist)-1), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife bias grid ", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+			
+###RUN BASE MODEL of N model WITH BIAS GRID
+#Assuming these models all look ok, we now create a model with all the data which we then use for prediction
+
+#run maxent model across all cultES
+Nbasemodel <- lapply(2:(length(cultESlist)-1), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+
+#SET UP DATA N model WITH BIAS GRID for biological & undisturbnature values
+	cultESlist <- c("biological", "undisturbnature")
+	varnames <- c("North_municipalities_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"))
+
+##TEST N MODEL WITH BIAS GRID for biological & undisturbnature values
+Nmodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Response curves and jacknife bias grid ", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+
+###RUN BASE MODEL of N model WITH BIAS GRID for biological & undisturbnature
+#Assuming these models all look ok, we now create a model with all the data which we then use for prediction
+#run maxent model across biological & undisturbnature
+Nbasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "North model/Base_run_bias_grid_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+			
 
 ########################
 ###MAXENT RUNS SOUTH MODEL
 ########################
-###TEST MODEL
-#Response curves, jackknife & 10-fold cross-validation of S model
+
 #set up variables
-	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
-	"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","Governance_plus_protectedareas_norway")
+	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","Governance_plus_protectedareas_norway")
 	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
 	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
 
-#run model
+###TEST RUN S MODEL
+#Response curves, jackknife & 10-fold cross-validation of S model
 Smodel <- lapply(2:(length(cultESlist)-1), function(x) {
 	
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "South model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Water_within_500m_norway", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=2'), path=currOutPath)
-			
-			#save model
-			#names(currMod) <- cultESlist[x]
-			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
-			return(currMod)
-			})
-
-#set up variables for biological & undisturbnature values
-	cultESlist <- c("biological", "undisturbnature")
-	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_heathshrub_1km",  
-	"Corrine2012_norway_sparselyvegetated_1km", "Corrine2012_norway_wetland_1km", "Corrine2012_norway_cropland_1km", "Distance_to_Coast_norway2", "Distance_to_Road_norway", "Distance_to_Town2_norway", "Water_within_500m_norway", "Distance_to_industrialdevelopment2","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
-	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
-	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
-	envStack <- envStack[[varnames]]
-	bg <- read.csv(paste0(outDir,  "South model/Response curves and jacknife3/backgroundpoints_south.csv"))
-
-#run model for biological & undisturbnature values
-Smodel <- lapply(1:length(cultESlist), function(x) {	
-			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
-			currOutPath <- paste0(outDir, "South model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
-			
-			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Water_within_500m_norway", "Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
@@ -346,92 +428,334 @@ Smodel <- lapply(1:length(cultESlist), function(x) {
 			return(currMod)
 			})
 			
-
 ###RUN BASE MODEL of S model
 #Assuming these models all look ok, we now create a model with all the data which we later use for prediction
-
-Sbasemodel <- lapply(6:length(cultESlist), function(x) {
+Sbasemodel <- lapply(2:(length(cultESlist)-1), function(x) {
 			
 			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "South model/Base_run_", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
 			
 			#save model
 			#names(currMod) <- cultESlist[x]
 			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 			return()
 			})
+			#run maxent model across all cultES
+
+###SET UP DATA S MODEL for biological & undisturbnature values
+#set up variables for biological & undisturbnature values
+	cultESlist <- c("biological", "undisturbnature")
+	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
+
+###TEST RUN S MODEL for biological & undisturbnature values
+#Response curves, jackknife & 10-fold cross-validation of S model
+Smodel <- lapply(1:length(cultESlist), function(x) {	
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "State_commons_norway_binary",  "Protected_areas_norway_forbiological"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
+###RUN BASE MODEL of S model for biological & undisturbnature
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Sbasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base_run_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
 			
 
 ########################
 ###MAXENT RUNS SOUTH MODEL WITH BIAS GRID
 ########################
-###TEST MODEL
+###SET UP DATA
 #Response curves, jackknife & 10-fold cross-validation of S model with bias grid
+#set up variables
+	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway",  "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","Governance_plus_protectedareas_norway")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
 
-###RUN BASE MODEL
+###TEST MODEL WITH BIAS GRID
+#run model with k-fold cross validation & jackknife
+Smodel <- lapply(2:(length(cultESlist)-1), function(x) {
+	
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife bias grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+			
+###RUN BASE MODEL of S model WITH BIAS GRID
 #Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Sbasemodel <- lapply(2:(length(cultESlist)-1), function(x) {
+			
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return()
+			})
+			#run maxent model across all cultES
 
+###SET UP DATA FOR S MODEL biological & undisturbnature values WITH BIAS GRID
+#set up variables for biological & undisturbnature values
+	cultESlist <- c("biological", "undisturbnature")
+	varnames <- c("South_municipalities", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway",  "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"))
+
+###TEST MODEL FOR S MODEL biological & undisturbnature values WITH BIAS GRID
+#run model for biological & undisturbnature values
+Smodel <- lapply(1:length(cultESlist), function(x) {	
+			currOcc <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Response curves and jacknife bias grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "State_commons_norway_binary",  "Protected_areas_norway_forbiological"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
+###RUN BASE MODEL WITH BIAS GRID of S model for biological & undisturbnature
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Sbasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "South model/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
 ########################
 ###MAXENT RUNS NORTHSOUTH COMBINED MODEL
 ########################
-###TEST MODEL
-#Response curves, jackknife & 10-fold cross-validation of model created with both north and south data 
-
-#Set up variables
+###SET UP DATA for NORTHSOUTH COMBINED MODEL
+	varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
 	markersCombined <- rbind(markersNsub, markersSsub)
 	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
-	
-ComboModel <- lapply(1:length(cultESlist), function(x) {
+
+###TEST MODEL	
+#Response curves, jackknife & 10-fold cross-validation of model created with both north and south data 
+ComboModel <- lapply(2:length(cultESlist-1), function(x) {
 			
 			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=2'), path=currOutPath)
-			
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
 				
 			#save model
-			#names(currMod) <- cultESlist[x]
 			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 			return(currMod)
 			})
-				
-
-
+	
 ###RUN BASE MODEL of model created with both north and south data
 #Assuming these models all look ok, we now create a model with all the data which we later use for prediction
-CombobaseModel <- lapply(1:length(cultESlist), function(x) {
+CombobaseModel <- lapply(2:(length(cultESlist)-1), function(x) {
 			
 			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
 			currOutPath <- paste0(outDir, "Combined model/Base_run_", currDate, "/", as.character(cultESlist[x]))
-			dir.create(currOutPath)
+			dir.create(currOutPath, recursive=TRUE)
+
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return()
+			})
+
+###SET UP DATA FOR biological & undisturbnature values NORTHSOUTH COMBINED MODEL
+	cultESlist <- c("biological", "undisturbnature")
+	varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
+
+###TEST MODEL FOR biological & undisturbnature values NORTHSOUTH COMBINED MODEL
+#run model for biological & undisturbnature values
+Combomodel <- lapply(1:length(cultESlist), function(x) {	
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife ", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
 			
 			#run the model
-			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("Corrine2006_norway_noSea","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=2'), path=currOutPath)
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "State_commons_norway_binary",  "Protected_areas_norway_forbiological"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1'), path=currOutPath)
 			
-				
 			#save model
 			#names(currMod) <- cultESlist[x]
 			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 			return(currMod)
 			})
-
+	
+###RUN BASE MODEL of Combo model for biological & undisturbnature NORTHSOUTH COMBINED MODEL
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Combobasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Base_run_", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
 			
 ########################
 ###MAXENT RUNS NORTHSOUTH COMBINED MODEL WITH BIAS GRID
 ########################
-###TEST MODEL
+###SET UP DATA WITH BIAS GRID
+	varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway",  "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	markersCombined <- rbind(markersNsub, markersSsub)
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
+
+###TEST NORTHSOUTH COMBINED MODEL WITH BIAS GRID
 #Response curves, jackknife & 10-fold cross-validation of model created with both north and south data and bias grid
-
-#RUN BASE MODEL
+ComboModel <- lapply(2:length(cultESlist-1), function(x) {
+			
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife bias grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+				
+			#save model
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+				
+###RUN BASE NORTHSOUTH COMBINED MODEL WITH BIAS GRID
 #Assuming these models all look ok, we now create a model with all the data which we later use for prediction
-#Base run of model created with both north and south data and bias grid
+CombobaseModel <- lapply(2:(length(cultESlist)-1), function(x) {
+			
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
 
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Governance_plus_protectedareas_norway"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return()
+			})
+
+###SET UP DATA FOR biological & undisturbnature values NORTHSOUTH COMBINED MODEL WITH BIAS GRID
+	cultESlist <- c("biological", "undisturbnature")
+	varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway",  "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater","State_commons_norway_binary",  "Protected_areas_norway_forbiological")
+	envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
+	names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
+	envStack <- envStack[[varnames]]
+	names(envStack)[[1]] <- "mask"
+	bg <- read.csv(paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"))
+
+###TEST MODEL FOR biological & undisturbnature values NORTHSOUTH COMBINED MODEL WITH BIAS GRID
+#run model for biological & undisturbnature values
+Combomodel <- lapply(1:length(cultESlist), function(x) {	
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Response curves and jacknife bias grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c("AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "State_commons_norway_binary",  "Protected_areas_norway_forbiological"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE',  'responsecurves=TRUE', 'jackknife=TRUE', 'replicates=10', 'outputgrids=false', 'outputfiletype=asc', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
+###RUN BASE MODEL of Combo model for biological & undisturbnature NORTHSOUTH COMBINED MODEL WITH BIAS GRID
+#Assuming these models all look ok, we now create a model with all the data which we later use for prediction
+Combobasemodel <- lapply(1:length(cultESlist), function(x) {
+			
+			currOcc <- markersCombined[markersCombined$species==as.character(cultESlist[x]),c("lon", "lat")]
+			currOutPath <- paste0(outDir, "Combined model/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))
+			dir.create(currOutPath, recursive=TRUE)
+			
+			#run the model
+			currMod <- dismo::maxent(envStack, currOcc, a=bg, factors=c( "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water","Protected_areas_norway_forbiological", "State_commons_norway_binary"), args=c('hinge=TRUE', 'linear=FALSE', 'quadratic=FALSE', 'product=FALSE', 'threshold=FALSE', 'autofeature=FALSE', 'writeplotdata=TRUE', 'responsecurves=TRUE', 'jackknife=TRUE', 'randomtestpoints=25', 'beta_hinge=1', 'biasfile=biasGrid'), path=currOutPath)
+			
+			#save model
+			#names(currMod) <- cultESlist[x]
+			saveRDS(currMod, file=paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+			return(currMod)
+			})
+	
 
 ########################
 ###PREDICT MODELS ONTO ENVIRONMENTAL VARIABLES
@@ -440,25 +764,45 @@ CombobaseModel <- lapply(1:length(cultESlist), function(x) {
 alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
 
 rastDir <- paste0(wd, "Spatial data/Processed/4_forMaxent_prediction/")
-varnames <- c("Corrine2006_norway_noSea", "Distance_to_River_norway", "Distance_to_Road_norway", "Distance_to_Town_norway", "Distance_to_Coast_norway2","Ecological_areas_norway", "Protected_areas_norway", "State_commons_norway") # dput(list.files(rastDir, "*.tif$"))
-
-cultESlist <- c("biological", "cabin", "cleanwater", "cultureident", "gathering", "hunt_fish", "income", "pasture", "recreation","scenic", "social", "specialplace", "spiritual", "therapuetic", "undisturbnature")
+varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological") # dput(list.files(rastDir, "*.asc$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]] #remove unwanted variables
+names(envStack)[[1]] <- "mask"
 
+###PREDICT across all models 
 #using a for loop because of memory allocation issues
 for (y in c("Combined model", "North model", "South model"){
 	for (x in seq_along(cultESlist)){
 	
-		currOutPath <- paste0(outDir, y, "/Base run/", as.character(cultESlist[x]))	
-		#dir.create(currOutPath)
+		currOutPath <- paste0(outDir, y, "/Base_run_", currDate, "/", as.character(cultESlist[x]))	
+		#dir.create(currOutPath, recursive=TRUE)
 		currMod <- readRDS(paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
 		print(paste0("starting prediction ", y, cultESlist[x]))
 		print(Sys.time())
 		#make predictive maps
-		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff") 
+		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_prediction_frombasemodel.tif"), format="GTiff") 
+		#currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE", "writeclampgrid=TRUE", "writemess=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff") 
+		print(paste0("finished prediction ", y, cultESlist[x]))
+		print(Sys.time())
+		rm(currMap) #trying to clear memory issues
+		
+		}
+}
+
+###PREDICT across all models WITH BIAS GRID
+#using a for loop because of memory allocation issues
+for (y in c("Combined model", "North model", "South model"){
+	for (x in seq_along(cultESlist)){
+	
+		currOutPath <- paste0(outDir, y, "/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))	
+		#dir.create(currOutPath, recursive=TRUE)
+		currMod <- readRDS(paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
+		print(paste0("starting prediction ", y, cultESlist[x]))
+		print(Sys.time())
+		#make predictive maps
+		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_prediction_frombasemodelbiasgrid.tif"), format="GTiff") 
 		#currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE", "writeclampgrid=TRUE", "writemess=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff") 
 		print(paste0("finished prediction ", y, cultESlist[x]))
 		print(Sys.time())
@@ -472,7 +816,6 @@ for (y in c("Combined model", "North model", "South model"){
 
 
 
-
 ######################
 ###COMPARE MODELS
 ######################
@@ -480,7 +823,7 @@ for (y in c("Combined model", "North model", "South model"){
 bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
 for (x in 1:length(cultESlist)){
 	currOutPath <- paste0(outDir, "/North model/Test NS data/", as.character(cultESlist[x]))
-	dir.create(currOutPath)
+	dir.create(currOutPath, recursive=TRUE)
 	currInp <- 	paste0(outDir, "/North model/Base run/", as.character(cultESlist[x]))
 	currTestData <- markersSsub[markersSsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 	currMod <- readRDS(paste0(currInp, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
@@ -494,7 +837,7 @@ for (x in 1:length(cultESlist)){
 bg <- read.csv(paste0(outDir, "backgroundpoints.csv"))[,2:3]
 for (x in 1:length(cultESlist)){
 	currOutPath <- paste0(outDir, "/South model/Test NS data/", as.character(cultESlist[x]))
-	dir.create(currOutPath)
+	dir.create(currOutPath, recursive=TRUE)
 	currInp <- 	paste0(outDir, "/South model/Base run/", as.character(cultESlist[x]))
 	currTestData <- markersNsub[markersNsub$species==as.character(cultESlist[x]),c("lon", "lat")]
 	currMod <- readRDS(paste0(currInp, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
