@@ -116,6 +116,12 @@ dev.off()
 	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100)
 	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"), row.names=FALSE)
 
+	#set up background points for the combined NS models with bias
+	alpineMask <- raster(paste0(dirname(rastDir), "/Bias_grids/BiasGrid_distancetoroad_Norway_alpine.tif"))
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
+	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100, prob=TRUE)
+	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion_bias.csv"), row.names=FALSE)
+
 	#plot the background points
 		bgshp <- SpatialPoints(bg, proj4string=crs(markersNshp))
 		png(paste0(dirname(rastDir), "/Background_points/Map_of_backgroundpoints_wholeregion.png"), width=480, height=620)
@@ -130,6 +136,12 @@ dev.off()
 	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "North_municipalities_alpine")
 	bgN <- randomPoints(Nmask, n=10000, ext=extent(alpineshp), tryf=100)
 	write.csv(bgN, paste0(dirname(rastDir), "/Background_points/backgroundpoints_north.csv"), row.names=FALSE)
+	
+#set up background points for North models with bias
+	Nmask <- raster(paste0(dirname(rastDir), "/Bias_grids/BiasGrid_distancetoroad_North_municipalities_alpine.tif"))	
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "North_municipalities_alpine")
+	bgN <- randomPoints(Nmask, n=10000, ext=extent(alpineshp), tryf=100, prob=TRUE)
+	write.csv(bgN, paste0(dirname(rastDir), "/Background_points/backgroundpoints_north_bias.csv"), row.names=FALSE)
 	
 	#plot the background points
 	bgshp <- SpatialPoints(bgN, proj4string=crs(markersNshp))
@@ -146,6 +158,12 @@ dev.off()
 	bgS <- randomPoints(Smask, n=10000, ext=extent(alpineshp), tryf=100)
 	write.csv(bgS, paste0(dirname(rastDir), "/Background_points/backgroundpoints_south.csv"), row.names=FALSE)	
 	
+	#set up background points for South models with bias
+	Smask <- raster(paste0(dirname(rastDir), "/Bias_grids/BiasGrid_distancetoroad_South_municipalities.tif"))
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "South_municipalities")
+	bgS <- randomPoints(Smask, n=10000, ext=extent(alpineshp), tryf=100, prob=TRUE)
+	write.csv(bgS, paste0(dirname(rastDir), "/Background_points/backgroundpoints_south_bias.csv"), row.names=FALSE)	
+	
 	#plot the background points
 	bgshp <- SpatialPoints(bgS, proj4string=crs(markersNshp))
 	png(paste0(dirname(rastDir), "/Background_points/Map_of_backgroundpoints_south.png"), width=480, height=620)
@@ -154,7 +172,7 @@ dev.off()
 		plot(markersNshp, col="darkslateblue", add=TRUE, pch=20, cex=0.5, alpha=0.5)
 		plot(bgshp, col="darkslategray2", add=TRUE, pch=20, cex=0.5, alpha=0.5)
 	dev.off()
-
+	
 #############################
 #CHOOSE REGULARIZATION MULTIPLIER
 #############################

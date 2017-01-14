@@ -130,6 +130,20 @@ biasRastNormMaskednowater <- mask(biasRastNorm, maskTemplate, filename=outPath, 
 #Save as .asc
 writeRaster(biasRastMaskednowater, filename=paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_no_water.asc"), format="ascii")
 
+#Mask out areas outside North study region as NA
+maskTemplate <- raster(paste0(rastDir, "/Templates and boundaries/North_municipalities_alpine.tif"))
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_North_municipalities_alpine.tif")
+biasRastMaskedN <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
+
+#Mask out areas outside South study region as NA
+maskTemplate <- raster(paste0(rastDir, "/Templates and boundaries/South_municipalities.tif"))
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_South_municipalities.tif")
+biasRastMaskedS <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
+
+#Mask out areas outside Norway_alpine study region as NA
+maskTemplate <- raster(paste0(rastDir, "/Templates and boundaries/Norway_alpine.tif"))
+outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_Norway_alpine.tif")
+biasRastMaskedNS <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
 
 ###############################
 #Plot the models and the bias raster
