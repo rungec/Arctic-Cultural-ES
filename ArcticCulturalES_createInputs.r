@@ -201,7 +201,7 @@ rastList <- list(
 Distance_to_Town=raster(paste0(rastDir, "Original/SSB/Tettsted2015/tet_dist2015")),
 Distance_to_River=raster(paste0(rastDir, "Original/N50 Data/Rivers50/river_dist")),
 Distance_to_Coast= raster(paste0(rastDir, "Original/N250 Data/Coastline250/coastdistance")),
-Distance_to_Road=raster(paste0(rastDir, "Original/N250 Data/Roads250/roaddist")),
+#Distance_to_Road=raster(paste0(rastDir, "Original/N250 Data/Roads250/roaddist")), #no longer used
 Distance_to_House=raster(paste0(rastDir, "Original/N250 Data/Buildings250/house_dist"))
 )
 
@@ -225,15 +225,13 @@ b <- lapply(1:length(corrineRastList), function(x) {
 envStack <- raster::stack(list.files(paste0(rastDir, "Processed/"), "*.tif$", full.names=TRUE))
 maskedStack <- mask(envStack, maskTemplate)
 
-setwd(paste0(rastDir, "Processed/masked/"))
+setwd(paste0(rastDir, "Processed/2_masked_to_norway/"))
 writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "GTiff", datatype="INT4S")
 
 ###########################
 #Mask out areas outside study region as NA (norway no water)
-maskTemplate <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_nowater")
-
 envStack <- raster::stack(list.files(paste0(rastDir, "Processed/1_not_masked"), "*.tif$", full.names=TRUE))
-maskedStack <- mask(envStack, maskTemplate)
+maskedStack <- mask(envStack, maskTemplate2)
 
 setwd(paste0(rastDir, "Processed/2b_masked_no_water/"))
 writeRaster(maskedStack, filename=paste(names(maskedStack), "no_water", sep="_"), bylayer=TRUE, format = "GTiff", datatype="INT4S")
@@ -256,10 +254,10 @@ writeRaster(maskedStack, filename=names(maskedStack), bylayer=TRUE, format = "as
 
 ###########################
 #make a mask raster from alpine climate regions to limit Maxent background to these regions
-alpineshp <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_alpine")
+alpineshp <- readOGR(paste0(rastDir, "Processed/Templates and boundaries"), "Norway_alpine_clip")
 alpinerast <- mask(rastTemplate, alpineshp)
-writeRaster(alpinerast, filename=paste0(rastDir, "Processed/Templates and boundaries/Norway_alpine.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(alpinerast, filename=paste0(rastDir,"Processed/forMaxent/Norway_alpine.asc"), format = "ascii")
+writeRaster(alpinerast, filename=paste0(rastDir, "Processed/Templates and boundaries/Norway_alpine_clip.tif"), format = "GTiff", datatype="INT4S")
+writeRaster(alpinerast, filename=paste0(rastDir,"Processed/3_forMaxent_asc/Norway_alpine_clip.asc"), format = "ascii")
 
 ##########
 #Make mask raster from municipality boundaries
@@ -272,25 +270,25 @@ northmuns <- muns[muns@data$NAVN %in% c("Sørfold", "Bodø", "Fauske",
 writeOGR(northmuns, paste0(rastDir, "Processed/Templates and boundaries"), "North_municipalities", driver="ESRI Shapefile")
 northrast <- mask(rastTemplate, northmuns)
 writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities.asc"), format = "ascii")
+writeRaster(northrast, filename=paste0(rastDir,"Processed/3_forMaxent_asc/North_municipalities.asc"), format = "ascii")
 
 #clip the north to alpine
 northalp <- raster::intersect(northmuns,alpineshp)
 writeOGR(northalp, paste0(rastDir, "Processed/Templates and boundaries"), "North_municipalities_alpine", driver="ESRI Shapefile")
 northrast <- mask(rastTemplate, northalp)
 writeRaster(northrast, filename=paste0(rastDir, "Processed/Templates and boundaries/North_municipalities_alpine.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(northrast, filename=paste0(rastDir,"Processed/forMaxent/North_municipalities_alpine.asc"), format = "ascii")
+writeRaster(northrast, filename=paste0(rastDir,"Processed/3_forMaxent_asc/North_municipalities_alpine.asc"), format = "ascii")
 
 #south study region
 southmuns <- muns[muns@data$NAVN %in%c("Skjåk","Lom", "Vågå", "Vik","Balestrand","Luster","Årdal", "Vang","Voss","Sogndal","Leikanger", "Høyanger", "Skjåk","Lærdal", "Aurland"),]
 writeOGR(southmuns, paste0(rastDir, "Processed/Templates and boundaries"), "South_municipalities", driver="ESRI Shapefile")
 southrast <- mask(rastTemplate, southmuns)
 writeRaster(southrast, filename=paste0(rastDir, "Processed/Templates and boundaries/South_municipalities.tif"), format = "GTiff", datatype="INT4S")
-writeRaster(southrast, filename=paste0(rastDir,"Processed/forMaxent/South_municipalities.asc"), format = "ascii")
+writeRaster(southrast, filename=paste0(rastDir,"Processed/3_forMaxent_asc/South_municipalities.asc"), format = "ascii")
 
 ###########################
 #Clip rasters
-setwd(paste0(rastDir, "Processed/4_forMaxent_prediction_asc/"))
+setwd(paste0(rastDir, "Processed/4_forMaxent_prediction_alpine/"))
 maxentRastList <- list.files(paste0(rastDir, "Processed/3_forMaxent_asc"), ".asc$", full.names=TRUE)
 
 b <- lapply(1:length(maxentRastList), function(x) {

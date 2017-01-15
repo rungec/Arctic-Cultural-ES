@@ -115,6 +115,8 @@ Using ArcGIS, tabululate area of Percent_industrial_withoutvannvei_1km_norway_no
 Alpine= T_CLIM=='Z' in LANMAP2_LEV1.shp LANMAP-2 2007 Landscape map for Europe  
 Clip to Norway_border_10kmbuffer.shp & dissolve  
 > Norway_alpine.shp
+Clipped to Norway_border.shp
+> Norway_alpine_clip.shp
 *In r ArcticCulturalES_createInputs.r*
 Made a mask to limit Maxent background to alpine climate regions (0 if alpine, else NA)  
 > Norway_alpine.tif & Norway_alpine.asc
@@ -198,6 +200,21 @@ Using ArcGIS, tabululate area of AnyWaterbodies_majorriversandlakesbiggerthan2ha
 > Area_ofland_within500mofwater.csv
 43% of land in Norway is within 500m of water.
 
+#Distance to road
+*in ArcGIS*
+The raster "N250 Data/Roads250/roaddist/distance_to_Road" had issues (1) values that are directly underneath roads were given value = 0, but so were areas that were water/sea. Also, areas that were further than 10km were given value of NA, meaning part of the study region was NA. For this reason, I remade this raster.
+
+From shp of roads & ferry routes select by attributes
+"OBJTYPE" 'Barmarkslgype' 'Sti' 'Traktorveg' 'VegSenterlinje' 'Bane' 'Barmarksllype' (roads, paths, tractor paths):
+> input: N250 Data/Roads250/roaddist/no_n250_samferdsell", select by attributes
+"OBJTYPE" 'Barmarkslgype' 'Sti' 'Traktorveg' 'VegSenterlinje' 'Bane' 'Barmarksllype' (roads, paths, tractor paths)
+> output: Processed/shps/roads/no_n250_samferdsell_terrestrialonly.shp
+
+Euclidean Distance, setting environments to Norway_template_raster resolution, extent, snap to. Maximum distance set to 40000 (40km) - values outside this are NA. Resolution = 100m
+> Distance_to_Road_CR.tif
+  
+
+
 ###Data that is already rasterized
 *In r ArcticCulturalES_createInputs.r*  
 resampled to Norway_template_raster. Rasters were already at 100m resolution and correct projection, just needed cropping and resampling to overlap. 
@@ -207,7 +224,7 @@ extend raster to match Norway_template_raster.tif
 > distance_to_River_norway.tif = "N50 Data/Rivers50/river_dist"  
 > *distance_to_Coast_norway.tif = "N250 Data/Coastline250/coastdistance" see edits below* 
 > distance_to_Road_norway.tif = "N250 Data/Roads250/roaddist"  
-> distance_to_House_norway.tif = "N250 Data/Buildings250/house_dist"  
+> distance_to_House_norway.tif = "N250 Data/Buildings250/house_dist"  *not used - has issues*
 
 ###All data
 applied mask based on Norway_border_10kmbuffer.shp, areas outside shp = NA  
@@ -219,8 +236,8 @@ applied mask based on Norway_nowater.shp, areas outside shp = NA
 output as asciis for Maxent  
 > .asc rasters in folder "forMaxent_asc"
 
-clipped extent to norway_alpine.shp  
-> .asc rasters in folder "forMaxent_predictions_asc"
+clipped extent to norway_alpine_clip.shp  
+> .asc rasters in folder "forMaxent_predictions_alpine"
 
 ###Reprocessing of Distance_to_Coast_norway raster
 This raster has NA values across much of the study region. This raster was subsetquently remade from N250 Data\Coastline250\coastlinel2.shp 

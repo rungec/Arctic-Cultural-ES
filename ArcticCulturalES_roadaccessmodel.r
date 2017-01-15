@@ -13,20 +13,21 @@ options(stringsAsFactors=FALSE) # turn off automatic factor coersion
 # options(scipen=9999)            # turn off plotting axis lables in scientific notation
 
 
-wd <- "C:/Claire/Arctic_Cultural_ES/"
+wd <- "/home/runge/Data/Arctic_Cultural_ES/"
+#wd <- "C:/Claire/Arctic_Cultural_ES/"
 setwd(wd)
 
 
 ########################
 ## Setting system preferences for better work with raster
 # Define your temp folder
-my_tmpdir=paste0(wd, "tmpRaster")
+#my_tmpdir=paste0(wd, "tmpRaster")
 
 # Create it (handles the case where the folder already exists)
-dir.create(my_tmpdir, showWarnings=F)
+#dir.create(my_tmpdir, showWarnings=F)
 
 # Set the raster option to this folder
-rasterOptions(tmpdir= my_tmpdir)
+#rasterOptions(tmpdir= my_tmpdir)
 
 ## Maximum Memory
 # Often server has more RAM than desktop. Therefore the mamximum amount of memory that can be allocated 
@@ -44,7 +45,7 @@ rastTemplate = raster(paste0(rastDir, "Templates and boundaries/Norway_template_
 southPPGIS <- readOGR(paste0(wd, "PPGIS data/Processed/shps"), "PPGIS_Markers_south_UTM33N_municipal") 
 northPPGIS <- readOGR(paste0(wd, "PPGIS data/Processed/shps"), "PPGIS_Markers_north_UTM33N_alpine") 
 #distance to road rasterOptions
-disttoroadRast <- raster(paste0(rastDir, "2_masked_to_norway/Distance_to_Road_norway.tif"))
+disttoroadRast <- raster(paste0(rastDir, "2b_masked_no_water/Distance_to_Road_CR_no_water.tif"))
 
 #############################
 #extract distance to road for each ppgis points
@@ -141,7 +142,7 @@ outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_South_municipalit
 biasRastMaskedS <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
 
 #Mask out areas outside Norway_alpine study region as NA
-maskTemplate <- raster(paste0(rastDir, "/Templates and boundaries/Norway_alpine.tif"))
+maskTemplate <- raster(paste0(rastDir, "/Templates and boundaries/Norway_alpine_clip.tif"))
 outPath <- paste0(rastDir, "Bias_grids/BiasGrid_distancetoroad_Norway_alpine.tif")
 biasRastMaskedNS <- mask(biasRast, maskTemplate, filename=outPath, format = "GTiff", datatype="INT4S")
 

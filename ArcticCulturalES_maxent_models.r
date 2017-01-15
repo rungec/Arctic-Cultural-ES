@@ -111,8 +111,8 @@ dev.off()
 #############################
 
 #set up background points for the combined NS models
-	alpineMask <- raster(paste0(rastDir, "Norway_alpine.asc"))
-	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
+	alpineMask <- raster(paste0(rastDir, "Norway_alpine_clip.tif"))
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine_clip")
 	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100)
 	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"), row.names=FALSE)
 
@@ -127,7 +127,7 @@ dev.off()
 
 	#set up background points for the combined NS models with bias
 	alpineMask <- raster(paste0(dirname(rastDir), "/Bias_grids/BiasGrid_distancetoroad_Norway_alpine.tif"))
-	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
+	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine_clip")
 	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100, prob=TRUE)
 	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion_bias.csv"), row.names=FALSE)
 
