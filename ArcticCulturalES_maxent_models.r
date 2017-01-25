@@ -111,7 +111,7 @@ dev.off()
 #############################
 
 #set up background points for the combined NS models
-	alpineMask <- raster(paste0(rastDir, "Norway_alpine_clip.tif"))
+	alpineMask <- raster(paste0(dirname(rastDir), "/Templates and boundaries/Norway_alpine_clip.tif"))
 	alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine_clip")
 	bg <- randomPoints(alpineMask, n=10000, ext=extent(alpineshp), tryf=100)
 	write.csv(bg, paste0(dirname(rastDir), "/Background_points/backgroundpoints_wholeregion.csv"), row.names=FALSE)
@@ -799,56 +799,48 @@ Combobasemodel <- lapply(1:length(cultESlist), function(x) {
 ###PREDICT MODELS ONTO ENVIRONMENTAL VARIABLES
 ########################
 #Predict models
+i <- 1 #1:12, for different folders in folderlist
+
+folderlist <- paste0(rep(c("Combined model", "North model", "South model"), each=4), paste0(rep(c("/Base run ", "/Base run bias grid "), each=2), c("20170116/", "20170117/")))
+
 alpineshp <- readOGR(paste0(wd, "Spatial data/Processed/Templates and boundaries"), "Norway_alpine")
 
-rastDir <- paste0(wd, "Spatial data/Processed/4_forMaxent_prediction/")
-varnames <- c("Norway_alpine", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway", "Distance_to_Road_norway", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological") # dput(list.files(rastDir, "*.asc$"))
+rastDir <- paste0(wd, "Spatial data/Processed/3_forMaxent_asc/")
+#rastDir <- paste0(wd, "Spatial data/Processed/4_forMaxent_prediction/")
+varnames <- varnames <- c("Norway_alpine", "North_municipalities_alpine", "South_municipalities", "AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway","Distance_to_Road_CR_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological") # dput(list.files(rastDir, "*.asc$"))
 
 envStack <- raster::stack(list.files(rastDir, "*.asc$", full.names=TRUE))
 names(envStack) <- sapply(list.files(rastDir, "*.asc$"), function(x) strsplit(x, "\\.")[[1]][1])
 envStack <- envStack[[varnames]] #remove unwanted variables
-names(envStack)[[1]] <- "mask"
+
+#using a for loop because of memory allocation issues
+#for (i in folderlist){
+#rename the appropriate layer in envStack "mask" to match names of model 
+if (i %in% c(1:4)) { 
+	names(envStack[[1]]) <- "mask" #combined
+	} else if (i %in% c(5:8)) {
+	names(envStack[[2]]) <- "mask" #north
+	} else if (i %in% c(9:12)) {
+	names(envStack[[3]]) <- "mask" #south
+}
 
 ###PREDICT across all models 
-#using a for loop because of memory allocation issues
-for (y in c("Combined model", "North model", "South model"){
 	for (x in seq_along(cultESlist)){
-	
-		currOutPath <- paste0(outDir, y, "/Base_run_", currDate, "/", as.character(cultESlist[x]))	
+
+		currOutPath <- paste0(outDir, folderlist[i], as.character(cultESlist[x]))	
 		#dir.create(currOutPath, recursive=TRUE)
 		currMod <- readRDS(paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
-		print(paste0("starting prediction ", y, cultESlist[x]))
+		print(paste0("starting prediction ", folderlist[i], cultESlist[x]))
 		print(Sys.time())
 		#make predictive maps
-		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_prediction_frombasemodel.tif"), format="GTiff") 
+		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic'), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_prediction_alpine.tif"), format="GTiff") 
 		#currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE", "writeclampgrid=TRUE", "writemess=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff") 
-		print(paste0("finished prediction ", y, cultESlist[x]))
+		print(paste0("finished prediction ", folderlist[i], cultESlist[x]))
 		print(Sys.time())
 		rm(currMap) #trying to clear memory issues
 		
-		}
-}
-
-###PREDICT across all models WITH BIAS GRID
-#using a for loop because of memory allocation issues
-for (y in c("Combined model", "North model", "South model"){
-	for (x in seq_along(cultESlist)){
-	
-		currOutPath <- paste0(outDir, y, "/Base_run_bias_grid", currDate, "/", as.character(cultESlist[x]))	
-		#dir.create(currOutPath, recursive=TRUE)
-		currMod <- readRDS(paste0(currOutPath, "/Maxentmodel_rds_", as.character(cultESlist[x]), ".rds"))
-		print(paste0("starting prediction ", y, cultESlist[x]))
-		print(Sys.time())
-		#make predictive maps
-		currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_prediction_frombasemodelbiasgrid.tif"), format="GTiff") 
-		#currMap <- dismo::predict(currMod, envStack, ext=extent(alpineshp), args=c('outputformat=logistic', "doclamp=TRUE", "writeclampgrid=TRUE", "writemess=TRUE"), progress='text', filename=paste0(currOutPath,"/", cultESlist[x], "_basemodel.tif"), format="GTiff") 
-		print(paste0("finished prediction ", y, cultESlist[x]))
-		print(Sys.time())
-		rm(currMap) #trying to clear memory issues
-		
-		}
-}
-
+	}
+#}
 
 
 

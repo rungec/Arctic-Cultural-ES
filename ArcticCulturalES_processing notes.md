@@ -64,9 +64,9 @@ extend raster to match Norway_template_raster.tif
 
 ###CORRINE2012
 *In r ArcticCulturalES_createInputs.r*
-Calculated percentage of land cover in 3km (2900m) square around central cell
+Calculated percentage of land cover in 1km (900m) circle around central cell
 
-> Corrine2012_norway_xxx_3km.tif  
+> Corrine2012_norway_xxx_1km.tif  
 > broadleafforest = corine classes (311, 313)  
 > coniferforest = corine classes (312)  
 > heathshrub = corine classes (321:324)  
@@ -146,7 +146,6 @@ Converted to raster using Norway_template_raster as template. Value =10,20,30
 > Ecological_areas_norway.tif
 *note: we decided not to include these in the models, and instead use them to compare whether and how well people see the same biological values as experts*
 
-
 ###State land
 Statskog eiendom/Statskog eiendom 2014 (use only categories EKAT=2 or 3)  
 *In r ArcticCulturalES_createInputs.r*  
@@ -156,6 +155,10 @@ Converted to raster using Norway_template_raster as template. Value =2,3
 Converted to raster using Norway_template_raster as template. private land or private commons = 0; State commons 2,3,4,6 = 1
 > State_commons_norway_all.tif
 > State_commons_norway_binary.tif
+
+###State commons & protected areas combined  
+00 private not protected; 01 government not protected; 10 nature protection, private; 11 nature protection government; 20 managed landsape private; 21 managed landscape government  
+> Governance_plus_protectedareas_norway.tif  
 
 ###New Distance to Waterbodies
 *in ArcGIS 06/08/16*
@@ -171,9 +174,9 @@ Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set
 Combined Lakes & Rivers from N50 Data
 lakes =Original/N50 Data/Lakes50/Innsjo_Innsjo.shp select by attributes > 2ha
 > Lakesbiggerthan2ha.shp
-rivers =Original/N50 Data/Rivers50/Elv_Elvenett.shp, objType=='ElvBekkMidtlinje', buffered to 5m
+rivers =Original/N50 Data/Rivers50/Elv_Elvenett.shp, objType=='ElvBekkMidtlinje'
 > MajorRiver.shp
-Merged
+Merged (with MajoRiver buffered to 5m)
 > Waterbodies_majorriversandlakesbiggerthan2ha.shp
 > Waterbodies_majorriversandlakesbiggerthan2ha_dissolve.shp
 
@@ -341,6 +344,30 @@ Saved as .rds which can be loaded to R using readRDS
 > CorrelationofEnvironmentalVariables_nowater2.rds
 
 
+###16/01/17
+Test of regularisation parameters (=1, lower predictive power (more overfitted) but better fit to training data (higher AUC))
+Ran N, S, Combined models with and without bias grids  
+regularization (beta_hinge=1)  
+> Response curves and jacknife 20170116: 10-fold cross validation, with jacknife  
+> Base models 20170116:  25% of data set aside for testing  
+> variables used: c("Norway_alpine", "North_municipalities_alpine", "South_municipalities, AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway","Distance_to_Road_CR_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological")  
+
+###17/01/17
+Test of regularisation parameters (=1.5, higher predictive power (less overfitted) but lower fit to training data (lower AUC))
+Ran N, S, Combined models with and without bias grids  
+regularization (beta_hinge=1.5)  
+> Response curves and jacknife 20170117: 10-fold cross validation, with jacknife  
+> Base models 20170117:  25% of data set aside for testing  
+> variables used: c("Norway_alpine", "North_municipalities_alpine", "South_municipalities, AnyWaterbodies_majorriversandlakesbiggerthan2ha_1km_norway_no_water", "Corrine2012_norway_broadleafforest_1km", "Corrine2012_norway_coniferforest_1km", "Corrine2012_norway_cropland_1km", "Corrine2012_norway_heathshrub_1km", "Corrine2012_norway_sparselyvegetated_1km", "Distance_to_Town2_norway","Distance_to_Road_CR_no_water", "Percent_industrial_1km_norway_nowater", "Governance_plus_protectedareas_norway", "State_commons_norway_binary",  "Protected_areas_norway_forbiological")  
+
+###21/01/17
+Decision process around predictions:
+Options are to do clamping and whether MESS/clamp grids are needed.
+The models were created in a given study region (north, south, combined north-south) with background drawn from the same study region. We would expect that there are areas outside these regions with qualities of the landscape that are not represented within these study regions (ie there might be places further from roads, or with more forest) that were not captured in the background sampling of the original (base or base + bias grid) model.
+The question is, when we spatially predict these models, do we want to limit the 'habitat suitability' value to for these places to match that at the maximum (or minimum) limits for that particular environemntal variable (do clamping), or let the model prediction extrapolate from the modelled response (don't do clamping)? 
+Answer: for the initial purposes, I will ignore clamping. (1) I suspect that the environemnt is well represented within the landscape, at least for the qualities that matter to these models (the main variables). This could be confirmed by exploring the ranges of the environmental variables in each of the study region background samples. (make swd of background, summary of each column), though of course there will be some combinations of environmental variables that will not be present. (2) most of these models are hinge, and thus the response curve is self-clamped to represent the average prediction outside response curve limits - look at the response curves and you will see they are flat horizontal lines outside curve limits. 
+
+At some stage, it will be useful to generate a MESS grid for the landscape, to see where values exist that were not present during the model parameterization, and to generate clampgrids to determine a measure of uncertainty in the predictions.
 
 
 
