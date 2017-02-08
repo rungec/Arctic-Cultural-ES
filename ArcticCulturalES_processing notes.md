@@ -83,7 +83,6 @@ Merged the point and line features from above with Corrine2012_minesdumpsconstru
 Using Euclidean Distance in the Spatial Analyst toolbox, no maximum distance set, environments set to Norway_template_raster.tif  
 *Note: this only transfers features that overlap the cell centre, so is incorrect. I didn't fix it in this layer, as we decided to exclude vannvei (water pipelines etc) as people don't seem so bothered by them i.e people will happily hike next to pipelines, and fish in dams*
 > Distance_to_industrialdisturbance_norway.tif  
-
 As above, without Vankraft_vannvei (water pipelines etc) 
 > Industrial_disturbance_withoutvannvei_norway.shp
 Dissolved
